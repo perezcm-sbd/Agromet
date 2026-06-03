@@ -1,0 +1,1371 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgroMet — Meteorologia Agrícola</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sky: #2D6A8F;
+  --sky-light: #E8F4FD;
+  --sky-mid: #6FA8C7;
+  --earth: #7B5C3A;
+  --earth-light: #F5EDE3;
+  --earth-mid: #C4A07A;
+  --leaf: #3D7A4A;
+  --leaf-light: #EAF5EC;
+  --leaf-mid: #7CBF8A;
+  --sun: #D4892A;
+  --sun-light: #FEF3E2;
+  --rain: #4A7FA0;
+  --bg: #FAFAF7;
+  --surface: #FFFFFF;
+  --text: #1C2B1E;
+  --text-muted: #6B7B6E;
+  --border: rgba(60,80,60,0.12);
+  --radius: 14px;
+  --radius-sm: 8px;
+  --shadow: 0 2px 16px rgba(45,106,143,0.08);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+/* ───── HEADER ───── */
+#app-header {
+  background: linear-gradient(135deg, var(--leaf) 0%, var(--sky) 60%, #1A4A6B 100%);
+  padding: 1.5rem 2rem 2rem;
+  position: relative;
+  overflow: hidden;
+}
+#app-header::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Ccircle cx='30' cy='30' r='1.5' fill='white' opacity='0.06'/%3E%3Ccircle cx='10' cy='10' r='1' fill='white' opacity='0.04'/%3E%3Ccircle cx='50' cy='50' r='1' fill='white' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+}
+.header-inner { max-width: 960px; margin: 0 auto; position: relative; }
+.app-title { font-family: 'Fraunces', Georgia, serif; font-size: 2rem; color: #fff; font-weight: 600; letter-spacing: -0.5px; }
+.app-title span { color: #A8E6B4; }
+.app-subtitle { color: rgba(255,255,255,0.78); font-size: 0.9rem; margin-top: 0.25rem; }
+
+.header-controls {
+  display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.25rem; align-items: flex-end;
+}
+.control-group { display: flex; flex-direction: column; gap: 0.3rem; }
+.control-label { font-size: 0.72rem; color: rgba(255,255,255,0.7); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
+.header-input, .header-select {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.3);
+  color: #fff;
+  padding: 0.5rem 0.85rem;
+  border-radius: var(--radius-sm);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.9rem;
+  outline: none;
+  min-width: 160px;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+}
+.header-input::placeholder { color: rgba(255,255,255,0.55); }
+.header-input:focus, .header-select:focus { border-color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.22); }
+.header-select option { background: #2D6A8F; color: #fff; }
+
+.btn-locate {
+  background: rgba(255,255,255,0.2);
+  border: 1px solid rgba(255,255,255,0.4);
+  color: #fff;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 0.88rem;
+  display: flex; align-items: center; gap: 0.4rem;
+  transition: background 0.2s;
+}
+.btn-locate:hover { background: rgba(255,255,255,0.28); }
+
+.btn-search {
+  background: var(--sun);
+  border: none;
+  color: #fff;
+  padding: 0.5rem 1.4rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background 0.2s, transform 0.1s;
+}
+.btn-search:hover { background: #BF7320; }
+.btn-search:active { transform: scale(0.97); }
+
+/* ───── MAIN CONTENT ───── */
+#main { max-width: 960px; margin: 0 auto; padding: 1.5rem 1.5rem 3rem; }
+
+/* ───── FORECAST STRIP ───── */
+#forecast-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(62px, 1fr));
+  gap: 6px;
+  margin-bottom: 1.5rem;
+}
+.day-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.3rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+}
+.day-card:hover { border-color: var(--sky-mid); box-shadow: var(--shadow); transform: translateY(-2px); }
+.day-card.active { border-color: var(--sky); border-width: 2px; background: var(--sky-light); }
+.day-card .dc-dow { font-size: 0.65rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.day-card .dc-day { font-size: 1.05rem; font-weight: 600; color: var(--text); line-height: 1.2; }
+.day-card .dc-icon { font-size: 1.5rem; margin: 0.2rem 0; }
+.day-card .dc-temp { font-size: 0.72rem; color: var(--text-muted); }
+.day-card .dc-temp span { color: var(--earth); font-weight: 600; }
+
+/* ───── DETAIL PANEL ───── */
+#detail-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+@media (max-width: 600px) { #detail-panel { grid-template-columns: 1fr; } }
+
+.detail-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  box-shadow: var(--shadow);
+}
+.detail-card h3 {
+  font-family: 'Fraunces', serif;
+  font-size: 1rem;
+  color: var(--sky);
+  margin-bottom: 1rem;
+  display: flex; align-items: center; gap: 0.5rem;
+}
+
+.weather-hero {
+  display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;
+}
+.weather-icon-big { font-size: 3.5rem; }
+.weather-temp-big { font-family: 'Fraunces', serif; font-size: 2.8rem; font-weight: 600; color: var(--text); line-height: 1; }
+.weather-desc { font-size: 0.88rem; color: var(--text-muted); margin-top: 0.25rem; }
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+.metric {
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.8rem;
+  display: flex; flex-direction: column; gap: 0.1rem;
+}
+.metric-label { font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500; }
+.metric-value { font-size: 1rem; font-weight: 600; color: var(--text); }
+.metric-unit { font-size: 0.72rem; color: var(--text-muted); }
+
+/* ───── AI RECOMMENDATION ───── */
+#ai-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  box-shadow: var(--shadow);
+  margin-bottom: 1.5rem;
+}
+#ai-panel h3 {
+  font-family: 'Fraunces', serif;
+  font-size: 1.1rem;
+  color: var(--leaf);
+  margin-bottom: 1rem;
+  display: flex; align-items: center; gap: 0.5rem;
+}
+
+.rec-section { margin-bottom: 1rem; }
+.rec-section:last-child { margin-bottom: 0; }
+.rec-header {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-weight: 600; font-size: 0.88rem; margin-bottom: 0.4rem;
+}
+.rec-header .badge {
+  padding: 0.2rem 0.6rem;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.badge-ok { background: var(--leaf-light); color: var(--leaf); }
+.badge-warn { background: var(--sun-light); color: var(--sun); }
+.badge-stop { background: #FDECEC; color: #C0392B; }
+.rec-body { font-size: 0.88rem; color: var(--text-muted); line-height: 1.65; }
+
+.ai-loading {
+  display: flex; align-items: center; gap: 0.75rem;
+  color: var(--text-muted); font-size: 0.9rem; padding: 1rem 0;
+}
+.spinner {
+  width: 20px; height: 20px;
+  border: 2.5px solid var(--border);
+  border-top-color: var(--leaf);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ───── HOURLY CHART ───── */
+#hourly-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  box-shadow: var(--shadow);
+  overflow-x: auto;
+}
+#hourly-section h3 {
+  font-family: 'Fraunces', serif;
+  font-size: 1rem;
+  color: var(--sky);
+  margin-bottom: 1rem;
+}
+.hourly-row { display: flex; gap: 8px; min-width: max-content; }
+.hour-box {
+  text-align: center;
+  min-width: 52px;
+  padding: 0.5rem 0.3rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+.hour-box .h-time { font-size: 0.65rem; color: var(--text-muted); font-weight: 500; }
+.hour-box .h-icon { font-size: 1.3rem; }
+.hour-box .h-temp { font-size: 0.78rem; font-weight: 600; color: var(--text); }
+.hour-box .h-rain { font-size: 0.65rem; color: var(--rain); }
+
+/* ───── ATTRIBUTION ───── */
+.attribution {
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  padding: 1rem 0 0.5rem;
+  border-top: 1px solid var(--border);
+  margin-top: 1.5rem;
+}
+.attribution a { color: var(--sky); text-decoration: none; }
+.attribution a:hover { text-decoration: underline; }
+
+/* ───── LANGUAGE SELECTOR ───── */
+.lang-row {
+  display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 1rem;
+}
+.lang-btn {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.3);
+  color: rgba(255,255,255,0.85);
+  padding: 0.25rem 0.65rem;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-family: 'DM Sans', sans-serif;
+  transition: background 0.2s;
+}
+.lang-btn:hover, .lang-btn.active { background: rgba(255,255,255,0.3); color: #fff; border-color: rgba(255,255,255,0.6); }
+
+/* ───── ERROR / EMPTY ───── */
+#welcome-msg {
+  text-align: center; padding: 3rem 1rem;
+  color: var(--text-muted);
+}
+#welcome-msg .welcome-icon { font-size: 4rem; margin-bottom: 1rem; }
+#welcome-msg h2 { font-family: 'Fraunces', serif; color: var(--leaf); margin-bottom: 0.5rem; }
+
+.error-msg {
+  background: #FDECEC; color: #C0392B;
+  border-radius: var(--radius-sm); padding: 0.8rem 1rem;
+  font-size: 0.88rem; margin-bottom: 1rem;
+}
+</style>
+</head>
+<body>
+
+<header id="app-header">
+  <div class="header-inner">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:1rem;">
+      <div>
+        <div class="app-title">🌾 Agro<span>Met</span></div>
+        <div class="app-subtitle" id="app-subtitle">Meteorologia agrícola · 16 dies de previsió</div>
+      </div>
+      <div class="lang-row" id="lang-row">
+        <button class="lang-btn active" onclick="setLang('ca')">Català</button>
+        <button class="lang-btn" onclick="setLang('es')">Castellano</button>
+        
+        
+        
+      </div>
+    </div>
+
+    <div class="header-controls">
+      <div class="control-group">
+        <span class="control-label">Comarca</span>
+        <select class="header-select" id="comarca-select" onchange="onComarcaChange()" style="min-width:180px;">
+          <option value="">— Seleccioneu comarca —</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <span class="control-label">Municipi</span>
+        <select class="header-select" id="municipi-select" style="min-width:180px;" disabled>
+          <option value="">— Primer comarca —</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <span class="control-label" id="lbl-crop">Cultiu</span>
+        <select class="header-select" id="crop-select">
+          <option value="blat">🌾 Blat / Cereals</option>
+          <option value="vinya">🍇 Vinya</option>
+          <option value="olivera">🫒 Olivera</option>
+          <option value="horta">🥦 Horta (tomàquet, pebrot...)</option>
+          <option value="fruita">🍎 Fruita de grau</option>
+          <option value="cítrics">🍊 Cítrics</option>
+          <option value="arros">🌾 Arròs</option>
+          <option value="fruiters">🌸 Fruiters de primavera</option>
+          <option value="patata">🥔 Patata</option>
+          <option value="girasol">🌻 Gira-sol / Oleaginoses</option>
+          <option value="llegums">🫘 Lleguminoses (cigró, llenties...)</option>
+          <option value="farratge">🐄 Farratge / Pastures</option>
+        </select>
+      </div>
+
+      <div style="display:flex;gap:0.5rem;align-items:flex-end;">
+        <button class="btn-locate" onclick="geolocate()" title="Ubicació automàtica">📍</button>
+        <button class="btn-search" id="btn-search" onclick="startSearch()">🔍 <span id="lbl-search">Consultar</span></button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div id="main">
+  <div id="error-area"></div>
+
+  <div id="welcome-msg">
+    <div class="welcome-icon">🌱</div>
+    <h2 id="welcome-h2">Benvingut a AgroMet</h2>
+    <p id="welcome-p">Introduïu la vostra localitat i el cultiu per obtenir la previsió meteorològica detallada i les recomanacions de reg i fitosanitaris durant els pròxims 16 dies.</p>
+  </div>
+
+  <div id="forecast-area" style="display:none;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem;">
+      <div>
+        <span style="font-family:'Fraunces',serif;font-size:1.1rem;color:var(--text);" id="location-title"></span>
+        <span style="font-size:0.78rem;color:var(--text-muted);margin-left:0.5rem;" id="location-coords"></span>
+      </div>
+      <span style="font-size:0.75rem;color:var(--text-muted);" id="data-source">Dades: Open-Meteo · ICON-EU · AEMET · Meteocat</span>
+    </div>
+
+    <div id="forecast-strip"></div>
+
+    <div id="detail-panel">
+      <div class="detail-card" id="weather-card">
+        <h3>🌤️ <span id="lbl-weather-title">Temps del dia</span></h3>
+        <div class="weather-hero">
+          <div class="weather-icon-big" id="d-icon">—</div>
+          <div>
+            <div class="weather-temp-big" id="d-temp">—</div>
+            <div style="font-size:0.7rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-top:-2px;" id="d-temp-label"></div>
+            <div class="weather-desc" id="d-desc">—</div>
+          </div>
+        </div>
+        <div class="metrics-grid" id="metrics-grid"></div>
+      </div>
+
+      <div class="detail-card" id="agro-card">
+        <h3>🌡️ <span id="lbl-agro-title">Índexs agroclimàtics</span></h3>
+        <div class="metrics-grid" id="agro-grid"></div>
+      </div>
+    </div>
+
+    <div id="hourly-section">
+      <h3>⏱️ <span id="lbl-hourly">Previsió horària</span></h3>
+      <div class="hourly-row" id="hourly-row"></div>
+    </div>
+
+    <div id="moon-section" class="detail-card" style="margin-top:1rem;margin-bottom:1rem;">
+      <h3 style="font-family:'Fraunces',serif;font-size:1rem;color:#4A3F7A;margin-bottom:0.75rem;">🌙 <span id="lbl-moon-title">Cicle lunar agrícola</span></h3>
+      <div id="moon-panel"><div style="color:var(--text-muted);font-size:0.85rem;">—</div></div>
+    </div>
+
+    <div id="ai-panel" style="margin-top:1rem;">
+      <h3>🌿 <span id="lbl-rec-title">Recomanacions agronòmiques</span></h3>
+      <div id="ai-content">
+        <div class="ai-loading"><div class="spinner"></div> <span id="lbl-ai-loading">Esperant consulta...</span></div>
+      </div>
+    </div>
+
+    <div class="attribution" id="attribution">
+      Dades: <a href="https://open-meteo.com" target="_blank">Open-Meteo</a> · Model regional <strong>ICON-EU</strong> (DWD) · Contrastades amb <a href="https://www.aemet.es" target="_blank">AEMET</a> i <a href="https://www.meteo.cat" target="_blank">Meteocat</a> · Recomanacions: IA Claude
+    </div>
+  </div>
+</div>
+
+<script>
+const LANGS = {
+  ca: {
+    subtitle: 'Meteorologia agrícola · 16 dies de previsió',
+    lbl_comarca: 'Comarca',
+    lbl_municipi: 'Municipi',
+    opt_comarca: '— Seleccioneu comarca —',
+    opt_municipi_first: '— Primer comarca —',
+    opt_municipi: '— Seleccioneu municipi —',
+    err_comarca: 'Seleccioneu una comarca.',
+    err_municipi: 'Seleccioneu un municipi.',
+    lbl_crop: 'Tipus de cultiu',
+    lbl_search: 'Consultar',
+    welcome_h2: 'Benvingut a AgroMet',
+    welcome_p: 'Introduïu la vostra localitat i el cultiu per obtenir la previsió meteorològica detallada i les recomanacions de reg i fitosanitaris durant els pròxims 16 dies.',
+    lbl_weather_title: 'Temps del dia',
+    lbl_agro_title: 'Índexs agroclimàtics',
+    lbl_hourly: 'Previsió horària',
+    lbl_rec_title: 'Recomanacions agronòmiques',
+    lbl_ai_loading: 'Generant recomanació amb IA...',
+    lbl_moon_title: 'Cicle lunar agrícola',
+    lbl_temp_now: 'Temperatura actual',
+    lbl_temp_max: 'Màxima prevista',
+    days: ['Dg','Dl','Dt','Dc','Dj','Dv','Ds'],
+    months: ['gen','feb','mar','abr','mai','jun','jul','ago','set','oct','nov','des'],
+    data_source: 'Dades: Open-Meteo · Model ICON-EU · AEMET · Meteocat',
+    attribution: 'Dades: <a href="https://open-meteo.com" target="_blank">Open-Meteo</a> · Model regional <strong>ICON-EU</strong> (DWD) · Contrastades amb <a href="https://www.aemet.es" target="_blank">AEMET</a> i <a href="https://www.meteo.cat" target="_blank">Meteocat</a> · Recomanacions: IA Claude',
+    metrics: { tmax:'Temp. màx.', tmin:'Temp. mín.', rain:'Precipitació', wind:'Vent (km/h)', gust:'Ratxa màx.', humidity:'Humitat', uv:'Índex UV', pressure:'Pressió', sunshine:'Sol (h)', precip_prob:'Prob. pluja', snow:'Neu', et:'Evapotranspiració', frost:'Gelada probable', soiltemp:'Temp. sòl', vis:'Visibilitat', moon_cycle:'Cicle lunar', moon_days:'dies' },
+    crops: { blat:'Blat/Cereals', vinya:'Vinya', olivera:'Olivera', horta:'Horta', fruita:'Fruita de grau', cítrics:'Cítrics', arros:'Arròs', fruiters:'Fruiters primavera', patata:'Patata', girasol:'Gira-sol', llegums:'Lleguminoses', farratge:'Farratge' }
+  },
+  es: {
+    subtitle: 'Meteorología agrícola · 16 días de previsión',
+    lbl_comarca: 'Comarca',
+    lbl_municipi: 'Municipio',
+    opt_comarca: '— Seleccionad comarca —',
+    opt_municipi_first: '— Primero comarca —',
+    opt_municipi: '— Seleccionad municipio —',
+    err_comarca: 'Seleccionad una comarca.',
+    err_municipi: 'Seleccionad un municipio.',
+    lbl_crop: 'Tipo de cultivo',
+    lbl_search: 'Consultar',
+    welcome_h2: 'Bienvenido a AgroMet',
+    welcome_p: 'Introducid vuestra localidad y el cultivo para obtener la previsión meteorológica detallada y las recomendaciones de riego y fitosanitarios durante los próximos 16 días.',
+    lbl_weather_title: 'Tiempo del día',
+    lbl_agro_title: 'Índices agroclimáticos',
+    lbl_hourly: 'Previsión horaria',
+    lbl_rec_title: 'Recomendaciones agronómicas',
+    lbl_ai_loading: 'Generando recomendación con IA...',
+    lbl_moon_title: 'Ciclo lunar agrícola',
+    lbl_temp_now: 'Temperatura actual',
+    lbl_temp_max: 'Máxima prevista',
+    days: ['Do','Lu','Ma','Mi','Ju','Vi','Sá'],
+    months: ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'],
+    data_source: 'Datos: Open-Meteo · Modelo ICON-EU · AEMET · Meteocat',
+    attribution: 'Datos: <a href="https://open-meteo.com" target="_blank">Open-Meteo</a> · Modelo ICON-EU (DWD/Copernicus) · Ref: <a href="https://www.aemet.es" target="_blank">AEMET</a> · Recomendaciones: IA Claude',
+    metrics: { tmax:'Temp. máx.', tmin:'Temp. mín.', rain:'Precipitación', wind:'Viento (km/h)', gust:'Racha máx.', humidity:'Humedad', uv:'Índice UV', pressure:'Presión', sunshine:'Sol (h)', precip_prob:'Prob. lluvia', snow:'Nieve', et:'Evapotranspiración', frost:'Helada probable', soiltemp:'Temp. suelo', vis:'Visibilidad', moon_cycle:'Ciclo lunar', moon_days:'días' },
+    crops: { blat:'Trigo/Cereales', vinya:'Viña', olivera:'Olivo', horta:'Huerta', fruita:'Fruta de hueso', cítrics:'Cítricos', arros:'Arroz', fruiters:'Frutales primavera', patata:'Patata', girasol:'Girasol', llegums:'Leguminosas', farratge:'Forraje' }
+  },
+  eu: {
+    subtitle: 'Nekazaritza-meteorologia · 16 eguneko iragarpena',
+    lbl_location: 'Udalerria edo herria',
+    lbl_crop: 'Labore mota',
+    lbl_search: 'Kontsultatu',
+    welcome_h2: 'Ongi etorri AgroMet-era',
+    welcome_p: 'Sartu zure herria eta laborea hurrengo 16 eguneetarako iragarpen meteorologiko xeheatua eta ureztapen eta fitosanitarioen gomendioak lortzeko.',
+    lbl_weather_title: 'Eguneko eguraldia',
+    lbl_agro_title: 'Indize agroklimatikoak',
+    lbl_hourly: 'Orduka iragarpen',
+    lbl_rec_title: 'Gomendio agronomikoak',
+    lbl_ai_loading: 'IA-rekin gomendioak sortzen...',
+    lbl_moon_title: 'Nekazaritza ilargi zikloa',
+    lbl_temp_now: 'Oraingo tenperatura',
+    lbl_temp_max: 'Gehienezko aurreikuspena',
+    days: ['Ig','Al','As','Az','Og','Or','La'],
+    months: ['urt','ots','mar','api','mai','eka','uzt','abu','ira','urr','aza','abe'],
+    data_source: 'Datuak: Open-Meteo · ICON-EU · AEMET · Meteocat',
+    attribution: 'Datuak: <a href="https://open-meteo.com" target="_blank">Open-Meteo</a> · ICON-EU eredua · Ref: <a href="https://www.aemet.es" target="_blank">AEMET</a> · Gomendioak: Claude IA',
+    metrics: { tmax:'Temp. max.', tmin:'Temp. min.', rain:'Prezipitazioa', wind:'Haizea (km/h)', gust:'Haize-korronte max.', humidity:'Hezetasuna', uv:'UV indizea', pressure:'Presioa', sunshine:'Eguzkia (h)', precip_prob:'Euri probabilitatea', snow:'Elurra', et:'Ebapotranspirazioa', frost:'Izotz probabilitatea', soiltemp:'Lur tenperatura', vis:'Ikusgarritasuna', moon_cycle:'Ilargi zikloa', moon_days:'egun' },
+    crops: { blat:'Garia/Zerealak', vinya:'Mahastia', olivera:'Oliondoa', horta:'Barazkia', fruita:'Hezurreko fruta', cítrics:'Zitriko', arros:'Arroza', fruiters:'Udaberriko fruta', patata:'Patata', girasol:'Eguzkilorea', llegums:'Lekadunak', farratge:'Bazka' }
+  },
+  gl: {
+    subtitle: 'Meteoroloxía agrícola · 16 días de previsión',
+    lbl_location: 'Concello ou localidade',
+    lbl_crop: 'Tipo de cultivo',
+    lbl_search: 'Consultar',
+    welcome_h2: 'Benvido a AgroMet',
+    welcome_p: 'Introducide a vosa localidade e o cultivo para obter a previsión meteorolóxica detallada e as recomendacións de rego e fitosanitarios durante os próximos 16 días.',
+    lbl_weather_title: 'Tempo do día',
+    lbl_agro_title: 'Índices agroclimáticos',
+    lbl_hourly: 'Previsión horaria',
+    lbl_rec_title: 'Recomendacións agronómicas',
+    lbl_ai_loading: 'Xerando recomendación con IA...',
+    lbl_temp_now: 'Temperatura actual',
+    lbl_temp_max: 'Máxima prevista',
+    days: ['Do','Lu','Ma','Mé','Xo','Ve','Sá'],
+    months: ['xan','feb','mar','abr','mai','xuñ','xul','ago','set','out','nov','dec'],
+    data_source: 'Datos: Open-Meteo · Modelo ICON-EU · AEMET · Meteocat',
+    attribution: 'Datos: <a href="https://open-meteo.com" target="_blank">Open-Meteo</a> · Modelo ICON-EU · Ref: <a href="https://www.aemet.es" target="_blank">AEMET</a> · <a href="https://www.meteogalicia.gal" target="_blank">Meteogalicia</a> · Recomendacións: IA Claude',
+    metrics: { tmax:'Temp. máx.', tmin:'Temp. mín.', rain:'Precipitación', wind:'Vento (km/h)', gust:'Racha máx.', humidity:'Humidade', uv:'Índice UV', pressure:'Presión', sunshine:'Sol (h)', precip_prob:'Prob. choiva', snow:'Neve', et:'Evapotranspiración', frost:'Xeada probable', soiltemp:'Temp. chan', vis:'Visibilidade', moon_cycle:'Ciclo lunar', moon_days:'días' },
+    crops: { blat:'Trigo/Cereais', vinya:'Vide', olivera:'Oliveira', horta:'Horta', fruita:'Froita de óso', cítrics:'Cítricos', arros:'Arroz', fruiters:'Froiteiras primavera', patata:'Pataca', girasol:'Xirasol', llegums:'Leguminosas', farratge:'Forraxe' }
+  },
+  en: {
+    subtitle: 'Agricultural Meteorology · 16-day forecast',
+    lbl_location: 'Town or location',
+    lbl_crop: 'Crop type',
+    lbl_search: 'Search',
+    welcome_h2: 'Welcome to AgroMet',
+    welcome_p: 'Enter your location and crop type to get detailed weather forecasts and irrigation/phytosanitary recommendations for the next 16 days.',
+    lbl_weather_title: 'Daily Weather',
+    lbl_agro_title: 'Agroclimatic Indices',
+    lbl_hourly: 'Hourly Forecast',
+    lbl_rec_title: 'Agronomic Recommendations',
+    lbl_ai_loading: 'Generating AI recommendation...',
+    lbl_moon_title: 'Agricultural lunar cycle',
+    lbl_temp_now: 'Current temperature',
+    lbl_temp_max: 'Forecast maximum',
+    days: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
+    months: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+    data_source: 'Data: Open-Meteo · ICON-EU model · AEMET · Meteocat',
+    attribution: 'Data: <a href="https://open-meteo.com" target="_blank">Open-Meteo</a> · ICON-EU model (DWD/Copernicus) · Ref: <a href="https://www.aemet.es" target="_blank">AEMET</a> · <a href="https://www.meteo.cat" target="_blank">Meteocat</a> · Recommendations: Claude AI',
+    metrics: { tmax:'Max temp.', tmin:'Min temp.', rain:'Precipitation', wind:'Wind (km/h)', gust:'Max gust', humidity:'Humidity', uv:'UV Index', pressure:'Pressure', sunshine:'Sunshine (h)', precip_prob:'Rain prob.', snow:'Snow', et:'Evapotranspiration', frost:'Frost risk', soiltemp:'Soil temp.', vis:'Visibility', moon_cycle:'Lunar cycle', moon_days:'days' },
+    crops: { blat:'Wheat/Cereals', vinya:'Grapevine', olivera:'Olive tree', horta:'Vegetables', fruita:'Stone fruit', cítrics:'Citrus', arros:'Rice', fruiters:'Spring fruit trees', patata:'Potato', girasol:'Sunflower', llegums:'Legumes', farratge:'Forage/Pasture' }
+  }
+};
+
+// ─────────────────────────────────────────
+//  FASE LUNAR (càlcul astronòmic sense API)
+// ─────────────────────────────────────────
+function moonPhase(date) {
+  // Algorisme de Conway simplificat
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  // Càlcul basat en el cicle sinòdic de 29.53059 dies
+  // Referència: lluna nova coneguda el 6 gener 2000
+  const knownNew = new Date(2000, 0, 6).getTime();
+  const synodicMonth = 29.53059 * 24 * 3600 * 1000;
+  const elapsed = date.getTime() - knownNew;
+  const phase = ((elapsed % synodicMonth) / synodicMonth + 1) % 1; // 0=nova, 0.5=plena
+  return phase; // 0..1
+}
+
+function moonIcon(date) {
+  const p = moonPhase(date);
+  // 8 fases
+  if (p < 0.0625 || p >= 0.9375) return '🌑'; // nova
+  if (p < 0.1875) return '🌒'; // creixent minvant
+  if (p < 0.3125) return '🌓'; // quart creixent
+  if (p < 0.4375) return '🌔'; // gibosa creixent
+  if (p < 0.5625) return '🌕'; // plena
+  if (p < 0.6875) return '🌖'; // gibosa minvant
+  if (p < 0.8125) return '🌗'; // quart minvant
+  return '🌘'; // creixent minvant
+}
+
+function moonPhaseName(date, lang) {
+  const p = moonPhase(date);
+  const names = {
+    ca: ['Lluna nova','Creixent','Quart creixent','Gibosa creixent','Lluna plena','Gibosa minvant','Quart minvant','Minvant'],
+    es: ['Luna nueva','Creciente','Cuarto creciente','Gibosa creciente','Luna llena','Gibosa menguante','Cuarto menguante','Menguante'],
+    eu: ['Ilberri','Ilgora','Lehen laurden','Gora gibosoa','Beteilargí','Behera gibosoa','Azken laurden','Ilbehera'],
+    gl: ['Lúa nova','Crecente','Cuarto crecente','Xibosa crecente','Lúa chea','Xibosa minguante','Cuarto minguante','Minguante'],
+    en: ['New Moon','Waxing Crescent','First Quarter','Waxing Gibbous','Full Moon','Waning Gibbous','Last Quarter','Waning Crescent'],
+  };
+  const idx = p < 0.0625||p>=0.9375?0: p<0.1875?1: p<0.3125?2: p<0.4375?3: p<0.5625?4: p<0.6875?5: p<0.8125?6:7;
+  return (names[lang]||names.ca)[idx];
+}
+
+// Indica si una hora (0-23) és de nit donades les hores de sortida/posta
+function isNightHour(hour, sunriseHour, sunsetHour) {
+  return hour < sunriseHour || hour >= sunsetHour;
+}
+
+// Weather code → emoji + description
+function wmoInfo(code, lang) {
+  const descs = {
+    ca: { 0:'Cel serè', 1:'Majoritàriament serè', 2:'Parcialment núvol', 3:'Ennuvolat', 45:'Boira', 48:'Boira amb gebre', 51:'Plugim lleuger', 53:'Plugim moderat', 55:'Plugim intens', 61:'Pluja lleugera', 63:'Pluja moderada', 65:'Pluja forta', 71:'Neu lleugera', 73:'Neu moderada', 75:'Neu forta', 77:'Granissos', 80:'Xàfecs lleugers', 81:'Xàfecs moderats', 82:'Xàfecs forts', 85:'Xàfecs de neu', 95:'Tempesta', 96:'Tempesta amb pedra', 99:'Tempesta forta amb pedra' },
+    es: { 0:'Cielo despejado', 1:'Mayormente despejado', 2:'Parcialmente nublado', 3:'Nublado', 45:'Niebla', 48:'Niebla con escarcha', 51:'Llovizna ligera', 53:'Llovizna moderada', 55:'Llovizna intensa', 61:'Lluvia ligera', 63:'Lluvia moderada', 65:'Lluvia fuerte', 71:'Nieve ligera', 73:'Nieve moderada', 75:'Nieve fuerte', 77:'Granizo', 80:'Chubascos ligeros', 81:'Chubascos moderados', 82:'Chubascos fuertes', 85:'Nevadas', 95:'Tormenta', 96:'Tormenta con granizo', 99:'Tormenta fuerte' },
+    eu: { 0:'Zeru gardena', 1:'Ia gardena', 2:'Partzialki lainotua', 3:'Lainotua', 45:'Lainoa', 48:'Izotzezko lainoa', 51:'Zaparrada arina', 53:'Zaparrada moderatua', 55:'Zaparrada bizia', 61:'Euri arina', 63:'Euri moderatua', 65:'Euri bizia', 71:'Elur arina', 73:'Elur moderatua', 75:'Elur bizia', 77:'Txingorra', 80:'Eurite arinak', 81:'Eurite moderatuak', 82:'Eurite biziak', 85:'Elur euriteak', 95:'Ekaitza', 96:'Txingorrezko ekaitza', 99:'Ekaitza bizia' },
+    gl: { 0:'Ceo despexado', 1:'Maiormente despexado', 2:'Parcialmente nubrado', 3:'Nubrado', 45:'Néboa', 48:'Néboa con xeada', 51:'Chuvisca lixeira', 53:'Chuvisca moderada', 55:'Chuvisca intensa', 61:'Choiva lixeira', 63:'Choiva moderada', 65:'Choiva forte', 71:'Neve lixeira', 73:'Neve moderada', 75:'Neve forte', 77:'Sarabia', 80:'Chuvascadas lixeiras', 81:'Chuvascadas moderadas', 82:'Chuvascadas fortes', 85:'Nevaradas', 95:'Trebón', 96:'Trebón con sarabia', 99:'Trebón forte' },
+    en: { 0:'Clear sky', 1:'Mainly clear', 2:'Partly cloudy', 3:'Overcast', 45:'Fog', 48:'Depositing rime fog', 51:'Light drizzle', 53:'Moderate drizzle', 55:'Dense drizzle', 61:'Slight rain', 63:'Moderate rain', 65:'Heavy rain', 71:'Slight snow', 73:'Moderate snow', 75:'Heavy snow', 77:'Snow grains', 80:'Slight showers', 81:'Moderate showers', 82:'Violent showers', 85:'Snow showers', 95:'Thunderstorm', 96:'Thunderstorm w/ hail', 99:'Heavy thunderstorm' }
+  };
+  const icons     = { 0:'☀️', 1:'🌤️', 2:'⛅', 3:'☁️', 45:'🌫️', 48:'🌫️', 51:'🌦️', 53:'🌦️', 55:'🌧️', 61:'🌧️', 63:'🌧️', 65:'🌧️', 71:'❄️', 73:'❄️', 75:'🌨️', 77:'🌨️', 80:'🌦️', 81:'🌦️', 82:'⛈️', 85:'🌨️', 95:'⛈️', 96:'⛈️', 99:'⛈️' };
+  // Icones nocturnes: cel serè/poc núvol → lluna; la resta igual
+  const iconsNight = { 0:'🌙', 1:'🌙', 2:'☁️', 3:'☁️', 45:'🌫️', 48:'🌫️', 51:'🌦️', 53:'🌦️', 55:'🌧️', 61:'🌧️', 63:'🌧️', 65:'🌧️', 71:'❄️', 73:'❄️', 75:'🌨️', 77:'🌨️', 80:'🌦️', 81:'🌦️', 82:'⛈️', 85:'🌨️', 95:'⛈️', 96:'⛈️', 99:'⛈️' };
+  const d = descs[lang] || descs['ca'];
+  return { icon: icons[code] || '🌡️', iconNight: iconsNight[code] || '🌙', desc: d[code] || `Codi ${code}` };
+}
+
+// ─────────────────────────────────────────
+//  STATE
+// ─────────────────────────────────────────
+let currentLang = 'ca';
+let forecastData = null;
+let hourlyData = null;
+let selectedDayIdx = 0;
+let currentLocation = '';
+let currentLat = null;
+let currentLon = null;
+
+// ─────────────────────────────────────────
+//  LANGUAGE
+// ─────────────────────────────────────────
+function setLang(lang) {
+  currentLang = lang;
+  const T = LANGS[lang];
+  document.getElementById('app-subtitle').textContent = T.subtitle;
+  if (document.getElementById('lbl-comarca')) document.getElementById('lbl-comarca').textContent = T.lbl_comarca || 'Comarca';
+  if (document.getElementById('lbl-municipi')) document.getElementById('lbl-municipi').textContent = T.lbl_municipi || 'Municipi';
+  document.getElementById('lbl-crop').textContent = T.lbl_crop;
+
+  document.getElementById('lbl-search').textContent = T.lbl_search;
+  document.getElementById('welcome-h2').textContent = T.welcome_h2;
+  document.getElementById('welcome-p').textContent = T.welcome_p;
+  document.getElementById('lbl-weather-title').textContent = T.lbl_weather_title;
+  document.getElementById('lbl-agro-title').textContent = T.lbl_agro_title;
+  document.getElementById('lbl-hourly').textContent = T.lbl_hourly;
+  if (document.getElementById('lbl-moon-title')) document.getElementById('lbl-moon-title').textContent = T.lbl_moon_title || 'Cicle lunar agrícola';
+  document.getElementById('lbl-rec-title').textContent = T.lbl_rec_title;
+  document.getElementById('data-source').textContent = T.data_source;
+  document.getElementById('attribution').innerHTML = T.attribution;
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.textContent.trim().toLowerCase() === lang || (lang === 'ca' && b.textContent.includes('Cat')) || (lang === 'eu' && b.textContent.includes('Eus')) || (lang === 'gl' && b.textContent.includes('Gal')) || (lang === 'es' && b.textContent.includes('Cas')) || (lang === 'en' && b.textContent.includes('Eng'))));
+  // Simpler lang-btn activation
+  document.querySelectorAll('.lang-btn').forEach(b => {
+    const map = { 'Català':'ca','Castellano':'es' };
+    b.classList.toggle('active', map[b.textContent.trim()] === lang);
+  });
+  // Update crop select
+  const sel = document.getElementById('crop-select');
+  const crops = T.crops;
+  const icons = { blat:'🌾', vinya:'🍇', olivera:'🫒', horta:'🥦', fruita:'🍎', cítrics:'🍊', arros:'🌾', fruiters:'🌸', patata:'🥔', girasol:'🌻', llegums:'🫘', farratge:'🐄' };
+  Array.from(sel.options).forEach(opt => {
+    if (crops[opt.value]) opt.textContent = icons[opt.value] + ' ' + crops[opt.value];
+  });
+  document.documentElement.lang = lang;
+  if (forecastData) renderDay(selectedDayIdx);
+}
+
+
+// ─────────────────────────────────────────
+//  DADES OFICIALS: COMARQUES I MUNICIPIS DE CATALUNYA
+//  Font: Institut Cartogràfic i Geològic de Catalunya / Idescat
+// ─────────────────────────────────────────
+const COMARQUES = {
+  "Alt Camp":["Aiguamúrcia","Alcover","Alió","Bràfim","Cabra del Camp","El Catllar","La Masó","Milà","Montferri","Nulles","Pla de Santa Maria","Pont d'Armentera","Puigpelat","Querol","Renau","La Riba","Rodonyà","Els Garidells","El Rourell","Santa Coloma de Queralt","Vallmoll","Valls","Vila-rodona","Vilabella"],
+  "Alt Empordà":["Agullana","L'Armentera","Avinyonet de Puigventós","Biure","Boadella i les Escaules","Borrassà","Cabanes","Cadaqués","Capmany","Castelló d'Empúries","Colera","Darnius","El Far d'Empordà","Espolla","Figueres","Fortià","Garrigàs","Garriguella","La Jonquera","Lladó","Llançà","Llers","Maçanet de Cabrenys","Masarac","Mollet de Peralada","Navata","Ordis","Palau de Santa Eulàlia","Palau-saverdera","Pau","Pedret i Marzà","Peralada","Pont de Molins","Portbou","Port de la Selva","Rabós","Riumors","Roses","Sant Climent Sescebes","Sant Llorenç de la Muga","Sant Miquel de Fluvià","Sant Mori","Sant Pere Pescador","Santa Llogaia d'Àlguema","Saus, Camallera i Llampaies","Siurana","Terrades","Torroella de Fluvià","Vajol","Ventalló","Viladamat","Vilafant","Vila-sacra","Vilamacolum","Vilanant","Vilanova de la Muga"],
+  "Alt Penedès":["Avinyonet del Penedès","Castellet i la Gornal","Castellví de la Marca","Font-rubí","Gelida","La Granada","Mediona","Olèrdola","Olesa de Bonesvalls","Els Hostalets de Pierola","Pacs del Penedès","Pla del Penedès","Puigdàlber","Sant Cugat Sesgarrigues","Sant Llorenç d'Hortons","Sant Martí Sarroca","Sant Pere de Riudebitlles","Sant Quintí de Mediona","Sant Sadurní d'Anoia","Santa Fe del Penedès","Santa Margarida i els Monjos","Subirats","Torrelavit","Torrelles de Foix","Vilafranca del Penedès","Vilobí del Penedès"],
+  "Alta Ribagorça":["Barruera","Benasc","Boí","El Pont de Suert","Sarroca de Bellera","Vilaller"],
+  "Anoia":["Argençola","Bruc","Cabrera d'Anoia","Calaf","Calonge de Segarra","Camps","Capellades","Carme","Castellfollit de Riubregós","Castellolí","Copons","Igualada","Jorba","La Llacuna","Masquefa","Montmaneu","La Pobla de Claramunt","Prats de Rei","Piera","Rubió","Sant Martí de Tous","Sant Pere Sallavinera","Santa Margarida de Montbui","Veciana","Vilanova del Camí"],
+  "Bages":["Aguilar de Segarra","Artés","Avinyó","Balsareny","Callús","Cardona","Castellbell i el Vilar","Castellgalí","Castellnou de Bages","El Pont de Vilomara i Rocafort","Fonollosa","Gaià","L'Estany","Manresa","Marganell","Mura","Navarcles","Navàs","Rajadell","Sallent","Sant Feliu Sasserra","Sant Fruitós de Bages","Sant Joan de Vilatorrada","Sant Mateu de Bages","Sant Salvador de Guardiola","Santa Maria d'Oló","Santpedor","Súria","Talamanca"],
+  "Baix Camp":["Alcover","Almoster","Arbolí","Argentera","Botarell","Cambrils","Capafonts","Castellvell del Camp","Colldejou","Cornudella de Montsant","Duesaigües","Les Borges del Camp","Mont-roig del Camp","Montbrió del Camp","Prades","Pratdip","La Riera de Gaià","Riudecanyes","Riudecols","Reus","Riudoms","La Selva del Camp","Vandellòs i l'Hospitalet de l'Infant","Vilaplana","Vinyols i els Arcs"],
+  "Baix Ebre":["Aldover","Alfara de Carles","Amposta","Benifallet","Bot","Camarles","Cherta","Deltebre","Flix","Ginestar","Godall","L'Aldea","L'Ametlla de Mar","L'Ampolla","Mas de Barberans","Miravet","Móra d'Ebre","Móra la Nova","Paüls","Perelló","Rasquera","Riba-roja d'Ebre","Santa Bàrbara","Tivenys","Tortosa","Ulldecona","La Palma d'Ebre","Xerta"],
+  "Baix Empordà":["Begur","Bellcaire d'Empordà","Calonge i Sant Antoni","Castell-Platja d'Aro","Corçà","Cruïlles, Monells i Sant Sadurní de l'Heura","Foixà","Fontanilles","Forallac","Gualta","La Bisbal d'Empordà","Llofriu","Palafrugell","Palamós","Palau-sator","Pals","La Pera","Peratallada","Regencós","Rupià","Sant Feliu de Guíxols","Santa Cristina d'Aro","Serra de Daró","Torrent","Torroella de Montgrí","Ullà","Ullastret","Ultramort","Vall-llobrega","Verges"],
+  "Baix Llobregat":["Abrera","Begues","Castelldefels","Castellví de Rosanes","Cervelló","Collbató","Corbera de Llobregat","Cornellà de Llobregat","El Papiol","El Prat de Llobregat","Esparreguera","Esplugues de Llobregat","Gavà","L'Hospitalet de Llobregat","Martorell","Molins de Rei","Olesa de Montserrat","Pallejà","Sant Andreu de la Barca","Sant Boi de Llobregat","Sant Climent de Llobregat","Sant Esteve Sesrovires","Sant Feliu de Llobregat","Sant Joan Despí","Sant Just Desvern","Sant Vicenç dels Horts","Santa Coloma de Cervelló","Torrelles de Llobregat","Vallirana","Viladecans"],
+  "Baix Penedès":["Albinyana","Arboç","Banyeres del Penedès","Bellvei","Bonastre","Calafell","Cunit","El Vendrell","Llorenç del Penedès","Masllorenç","La Bisbal del Penedès","Santa Oliva","Torredembarra","Vespella de Gaià"],
+  "Barcelonès":["Badalona","Barcelona","L'Hospitalet de Llobregat","Sant Adrià de Besòs","Santa Coloma de Gramenet"],
+  "Berguedà":["Avià","Bagà","Berga","Borredà","Capolat","Casserres","Castellnou de Bages","Cercs","Fígols","Gironella","Gisclareny","Guardiola de Berguedà","La Nou de Berguedà","La Pobla de Lillet","L'Espunyola","Montclar","Montmajor","Navès","Olvan","Puig-reig","Quar","Sagàs","Saldes","Sant Jaume de Frontanyà","Viver i Serrateix"],
+  "Cerdanya":["Alp","Bolvir","Das","Fontanals de Cerdanya","Ger","Guils de Cerdanya","Isòvol","Lles de Cerdanya","Llívia","Meranges","Montellà i Martinet","Prats i Sansor","Prullans","Puigcerdà","Riu de Cerdanya","Urús"],
+  "Conca de Barberà":["Barberà de la Conca","Blancafort","Conesa","L'Espluga de Francolí","Llorac","Montblanc","Piles","Pontils","Querol","Rocafort de Queralt","Santa Coloma de Queralt","Sarral","Savallà del Comtat","Senan","Solivella","Vallfogona de Riucorb","Vilanova de Prades","Vilaverd","Vimbodí i Poblet"],
+  "Garraf":["Canyelles","Cubelles","Olivella","Sant Pere de Ribes","Sitges","Vilanova i la Geltrú"],
+  "Garrigues":["Arbeca","Les Borges Blanques","Bovera","Castelldans","Cervià de les Garrigues","El Cogul","El Soleràs","Fulleda","Granyena de les Garrigues","El Vilosell","Juncosa","Juneda","L'Albi","La Floresta","Maldà","Omellons","La Pobla de Cérvoles","Puiggròs","Tarrés","Vinaixa"],
+  "Garrotxa":["Argelaguer","Besalú","Beuda","Les Planes d'Hostoles","Les Preses","Maià de Montcal","Mieres","Montagut i Oix","Olot","Riudaura","Sales de Llierca","Sant Aniol de Finestres","Sant Feliu de Pallerols","Sant Ferriol","Sant Jaume de Llierca","Santa Pau","Tortellà","Vall de Bianya","Vall d'en Bas"],
+  "Gironès":["Aiguaviva","Bescanó","Campllong","Cassà de la Selva","Celrà","Cervià de Ter","Flaçà","Fornells de la Selva","Girona","Juià","Llagostera","Llambilles","Madremanya","Quart","Riudellots de la Selva","Salt","Sant Andreu Salou","Sant Gregori","Sant Joan de Mollet","Sant Jordi Desvalls","Sant Julià de Ramis","Sant Martí de Llémena","Sant Martí Vell","Sarrià de Ter","Vilablareix","Viladasens","Vilobi d'Onyar"],
+  "Maresme":["Alella","Arenys de Mar","Arenys de Munt","Argentona","Cabrera de Mar","Cabrils","Caldes d'Estrac","Calella","Canet de Mar","Dosrius","El Masnou","Malgrat de Mar","Mataró","Montgat","Òrrius","Palafolls","Pineda de Mar","Premià de Dalt","Premià de Mar","Sant Andreu de Llavaneres","Sant Cebrià de Vallalta","Sant Iscle de Vallalta","Sant Pol de Mar","Sant Vicenç de Montalt","Santa Susanna","Teià","Tiana","Tordera","Vilassar de Dalt","Vilassar de Mar"],
+  "Montsià":["Alcanar","Amposta","Freginals","La Galera","La Sénia","Godall","Mas de Barberans","Masdenverge","Sant Carles de la Ràpita","Sant Jaume d'Enveja","Santa Bàrbara","Ulldecona"],
+  "Noguera":["Àger","Albesa","Alfarràs","Algerri","Alòs de Balaguer","Artesa de Segre","Balaguer","Baronia de Rialb","Cabanabona","Castelló de Farfanya","Camarasa","Cubells","Foradada","Gavet de la Conca","Ivars de Noguera","La Sentiu de Sió","Les Avellanes i Santa Linya","Menarguens","Montgai","Oliola","Os de Balaguer","Penelles","Ponts","Preixens","Sant Llorenç de Montgai","Térmens","Torrelameu","Tragó de Noguera","Vallfogona de Balaguer","Vilanova de l'Aguda","Vilanova de Meià"],
+  "Osona":["Alpens","Balenyà","Centelles","El Brull","Espinelves","Folgueroles","Gurb","L'Esquirol","La Gleva","Les Masies de Roda","Les Masies de Voltregà","Lluçà","Malla","Manlleu","Montesquiu","Muntanyola","Olost","Oristà","Orís","Perafita","Prats de Lluçanès","Rupit i Pruit","Roda de Ter","Sant Agustí de Lluçanès","Sant Bartomeu del Grau","Sant Boi de Lluçanès","Sant Hipòlit de Voltregà","Sant Julià de Vilatorta","Sant Martí d'Albars","Sant Martí de Centelles","Sant Pere de Torelló","Sant Quirze de Besora","Sant Sadurní d'Osormort","Sant Vicenç de Torelló","Santa Cecília de Voltregà","Santa Eulàlia de Riuprimer","Seva","Sobremunt","Sora","Taradell","Tavèrnoles","Tavertet","Tona","Torelló","Vic","Vidrà","Viladrau","Vilanova de Sau"],
+  "Pallars Jussà":["Abella de la Conca","Isona i Conca Dellà","Castell de Mur","Conca de Dalt","El Pont de Suert","Gavet de la Conca","La Pobla de Segur","La Torre de Cabdella","Llimiana","Salàs de Pallars","Sant Esteve de la Sarga","Sarroca de Bellera","Senterada","Talarn","Tremp","Vilanova de Meià"],
+  "Pallars Sobirà":["Alins","Alt Àneu","Baix Pallars","Espot","Esterri d'Àneu","Esterri de Cardós","Farrera","Guingueta d'Àneu","Lladorre","Llavorsí","Rialp","Soriguera","Sort","Tírvia","Vall de Cardós"],
+  "Pla d'Urgell":["Barbens","Bellpuig","Bellvís","El Palau d'Anglesola","Golmés","Ivars d'Urgell","Linyola","Miralcamp","Mollerussa","Penelles","Sidamon","Torregrossa","Vilanova de Bellpuig","Vila-sana"],
+  "Pla de l'Estany":["Banyoles","Camós","Cornellà del Terri","Crespià","Esponellà","Fontcoberta","Palol de Revardit","Porqueres","Sant Miquel de Campmajor","Serinyà"],
+  "Priorat":["Bellmunt del Priorat","Cabacés","Capçanes","Cornudella de Montsant","El Lloar","La Bisbal de Falset","La Figuera","La Morera de Montsant","La Torre de Fontaubella","La Vilella Alta","La Vilella Baixa","Margalef","Marçà","Masroig","Molar","Poboleda","Porrera","Pradell de la Teixeta","Torroja del Priorat","Ulldemolins","Vinebre"],
+  "Ribera d'Ebre":["Ascó","Benissanet","Bot","Corbera d'Ebre","Flix","Garcia","Ginestar","La Palma d'Ebre","La Torre de l'Espanyol","Miravet","Móra d'Ebre","Móra la Nova","Riba-roja d'Ebre","Tivissa","Vinebre"],
+  "Ripollès":["Campdevànol","Campelles","Camprodon","Gombrèn","La Vall de Bianya","Llanars","Molló","Ogassa","Planoles","Queralbs","Ribas de Freser","Ripoll","Sant Joan de les Abadesses","Sant Pau de Segúries","Setcases","Toses","Vallfogona de Ripollès"],
+  "Segarra":["Biosca","Cervera","Estaràs","Els Plans de Sió","Forès","Freixenet","Guissona","Ivorra","Massoteres","Montoliu de Segarra","Montornès de Segarra","Pallerols","La Molsosa","Sanaüja","Sant Guim de Freixenet","Sant Ramon","Sedó","Talavera","Tarroja de Segarra","Torà","Vergós Guerrejat"],
+  "Segrià":["Aitona","Alcarràs","Alcoletge","Alfarràs","Alguaire","Almacelles","Almenar","Alpicat","Artesa de Lleida","Aspa","Benavent de Segrià","Corbins","Gimenells i el Pla de la Font","La Granja d'Escarp","La Portella","Lleida","Llardecans","Maials","Massalcoreig","Montoliu de Lleida","Puigverd de Lleida","Rosselló","Sarroca de Lleida","Seròs","Soses","Sudanell","Sunyer","Torrefarrera","Torres de Segre","Vilanova de la Barca"],
+  "Selva":["Amer","Anglès","Arbúcies","Blanes","Breda","Brunyola i Sant Martí Sapresa","Caldes de Malavella","Fogars de la Selva","Hostalric","Lloret de Mar","Maçanet de la Selva","Massanes","Osor","Riells i Viabrea","Riudarenes","Sant Feliu de Buixalleu","Sant Hilari Sacalm","Sant Julià del Llor i Bonmatí","Santa Coloma de Farners","Sils","Susqueda","Tossa de Mar","Vidreres","Vilobí d'Onyar"],
+  "Solsonès":["Clariana de Cardener","Guixers","Lladurs","Llobera","La Molsosa","Navès","Olius","Pinell de Solsonès","Riner","Sant Llorenç de Morunys","Solsona"],
+  "Tarragonès":["Altafulla","Canonja","Constantí","El Catllar","El Morell","El Rourell","Els Pallaresos","La Nou de Gaià","La Riera de Gaià","La Secuita","Nulles","Perafort","Pobla de Mafumet","Roda de Berà","Salomó","Salou","Tarragona","Torredembarra","Vespella de Gaià","Vila-seca","Vilallonga del Camp"],
+  "Terra Alta":["Arnes","Batea","Bot","Caseres","Corbera d'Ebre","El Pinell de Brai","Gandesa","Horta de Sant Joan","La Fatarella","La Pobla de Massaluca","Nonasp","Prat de Comte","Vilalba dels Arcs"],
+  "Urgell":["Agramunt","Anglesola","Barbens","Belianes","Bellpuig","Els Omells de na Gaia","Guimerà","Maldà","Nalec","Ossó de Sió","Preixana","Puigverd d'Agramunt","Tàrrega","Tornabous","Vallbona de les Monges","Verdú","Vilagrassa"],
+  "Val d'Aran":["Arres","Bausen","Bòrdes","Canejan","Es Bòrdes","Mont","Naut Aran","Vielha e Mijaran"],
+  "Vallès Occidental":["Badia del Vallès","Barberà del Vallès","Castellbisbal","Cerdanyola del Vallès","Gallifa","Matadepera","Montcada i Reixac","Palau-solità i Plegamans","Polinyà","Rellinars","Ripollet","Rubí","Sabadell","Sant Cugat del Vallès","Sant Llorenç Savall","Sant Quirze del Vallès","Sentmenat","Terrassa","Ullastrell","Vacarisses","Viladecavalls"],
+  "Vallès Oriental":["Aiguafreda","Bigues i Riells","Caldes de Montbui","Campins","Canovelles","Cànoves i Samalús","Cardedeu","Figaró-Montmany","Fogars de Montclús","Franqueses del Vallès","Granera","Granollers","La Garriga","La Roca del Vallès","Llinars del Vallès","Mollet del Vallès","Montseny","Montmeló","Montornès del Vallès","Parets del Vallès","Sant Antoni de Vilamajor","Sant Celoni","Sant Esteve de Palautordera","Sant Feliu de Codines","Sant Fost de Campsentelles","Sant Pere de Vilamajor","Sant Quirze Safaja","Santa Eulàlia de Ronçana","Santa Maria de Martorelles","Santa Maria de Palautordera","Tagamanent","Vallgorguina","Vallromanes","Vilalba Sasserra","Vilanova del Vallès"]
+};
+
+// Coordenades per municipi [lat, lon]
+const COORDS = {"Aiguamúrcia":[41.3167,1.3167],"Alcover":[41.2667,1.1667],"Alió":[41.3333,1.3],"Bràfim":[41.3,1.3167],"Cabra del Camp":[41.3667,1.2167],"El Catllar":[41.2333,1.2333],"La Masó":[41.35,1.3167],"Milà":[41.3167,1.25],"Montferri":[41.3,1.25],"Nulles":[41.3333,1.3],"Pla de Santa Maria":[41.35,1.2167],"Pont d'Armentera":[41.4,1.2333],"Puigpelat":[41.3167,1.2833],"Querol":[41.4167,1.3167],"Renau":[41.2833,1.25],"La Riba":[41.3,1.15],"Rodonyà":[41.3167,1.2667],"Els Garidells":[41.2833,1.2667],"El Rourell":[41.2667,1.2333],"Santa Coloma de Queralt":[41.5333,1.3833],"Vallmoll":[41.2833,1.2167],"Valls":[41.2833,1.25],"Vila-rodona":[41.35,1.2667],"Vilabella":[41.3,1.25],"Agullana":[42.4,2.8833],"L'Armentera":[42.1333,3.05],"Avinyonet de Puigventós":[42.2667,2.9667],"Biure":[42.35,2.9],"Boadella i les Escaules":[42.35,2.8],"Borrassà":[42.2167,2.9333],"Cabanes":[42.1667,3.05],"Cadaqués":[42.2833,3.2833],"Capmany":[42.3333,2.9333],"Castelló d'Empúries":[42.25,3.0833],"Colera":[42.4,3.1667],"Darnius":[42.3667,2.8167],"El Far d'Empordà":[42.2,2.9833],"Espolla":[42.4,2.9667],"Figueres":[42.2667,2.9667],"Fortià":[42.2,3.05],"Garrigàs":[42.2,2.9833],"Garriguella":[42.35,3.05],"La Jonquera":[42.4167,2.8667],"Lladó":[42.3167,2.8667],"Llançà":[42.35,3.15],"Llers":[42.3,2.9333],"Maçanet de Cabrenys":[42.3833,2.7833],"Masarac":[42.35,2.9667],"Mollet de Peralada":[42.3333,3.0],"Navata":[42.2833,2.9],"Ordis":[42.25,2.9],"Palau de Santa Eulàlia":[42.2167,2.9667],"Palau-saverdera":[42.25,3.1667],"Pau":[42.2833,3.1333],"Pedret i Marzà":[42.3,3.1],"Peralada":[42.3,3.0],"Pont de Molins":[42.3167,2.8833],"Portbou":[42.4167,3.15],"Port de la Selva":[42.3333,3.2],"Rabós":[42.3833,3.0167],"Riumors":[42.2,3.0],"Roses":[42.2667,3.1833],"Sant Climent Sescebes":[42.3667,2.9333],"Sant Llorenç de la Muga":[42.35,2.8333],"Sant Miquel de Fluvià":[42.1833,3.0],"Sant Mori":[42.1833,2.9833],"Sant Pere Pescador":[42.1833,3.1],"Santa Llogaia d'Àlguema":[42.2667,2.9],"Saus, Camallera i Llampaies":[42.1833,2.9833],"Siurana":[42.2667,2.9333],"Terrades":[42.3333,2.8333],"Torroella de Fluvià":[42.2,3.0333],"Vajol":[42.4167,2.8333],"Ventalló":[42.1833,3.0667],"Viladamat":[42.1667,3.0333],"Vilafant":[42.2833,2.9667],"Vila-sacra":[42.2333,2.9833],"Vilamacolum":[42.2,3.0833],"Vilanant":[42.3,2.9167],"Vilanova de la Muga":[42.3,3.0333],"Avinyonet del Penedès":[41.35,1.7333],"Castellet i la Gornal":[41.2333,1.6],"Castellví de la Marca":[41.3667,1.65],"Font-rubí":[41.4167,1.6833],"Gelida":[41.4333,1.8167],"La Granada":[41.3667,1.7],"Mediona":[41.45,1.65],"Olèrdola":[41.3,1.7167],"Olesa de Bonesvalls":[41.3333,1.8167],"Els Hostalets de Pierola":[41.5167,1.7833],"Pacs del Penedès":[41.3333,1.7167],"Pla del Penedès":[41.3667,1.7167],"Puigdàlber":[41.3667,1.7],"Sant Cugat Sesgarrigues":[41.3667,1.7833],"Sant Llorenç d'Hortons":[41.45,1.8167],"Sant Martí Sarroca":[41.3833,1.6667],"Sant Pere de Riudebitlles":[41.4667,1.7333],"Sant Quintí de Mediona":[41.4667,1.6833],"Sant Sadurní d'Anoia":[41.4333,1.7833],"Santa Fe del Penedès":[41.3833,1.7],"Santa Margarida i els Monjos":[41.3167,1.7167],"Subirats":[41.3833,1.8167],"Torrelavit":[41.3833,1.75],"Torrelles de Foix":[41.4,1.6833],"Vilafranca del Penedès":[41.35,1.7],"Vilobí del Penedès":[41.35,1.75],"Barruera":[42.4333,0.8833],"Benasc":[42.6,0.6],"Boí":[42.5,0.8167],"El Pont de Suert":[42.4,0.7333],"Sarroca de Bellera":[42.35,0.8667],"Vilaller":[42.45,0.7],"Argençola":[41.5667,1.5333],"Bruc":[41.5833,1.7833],"Cabrera d'Anoia":[41.5,1.7],"Calaf":[41.7333,1.5167],"Calonge de Segarra":[41.6667,1.45],"Camps":[41.6167,1.4833],"Capellades":[41.5333,1.6833],"Carme":[41.5167,1.6667],"Castellfollit de Riubregós":[41.7667,1.4833],"Castellolí":[41.5667,1.7667],"Copons":[41.6667,1.5167],"Igualada":[41.5833,1.6167],"Jorba":[41.6167,1.5667],"La Llacuna":[41.4833,1.5667],"Masquefa":[41.5,1.8167],"Montmaneu":[41.6167,1.5],"La Pobla de Claramunt":[41.5167,1.6833],"Prats de Rei":[41.7167,1.4833],"Piera":[41.5167,1.75],"Rubió":[41.6833,1.55],"Sant Martí de Tous":[41.5167,1.6333],"Sant Pere Sallavinera":[41.7167,1.4667],"Santa Margarida de Montbui":[41.55,1.6],"Veciana":[41.6333,1.5167],"Vilanova del Camí":[41.5667,1.6167],"Aguilar de Segarra":[41.7333,1.7333],"Artés":[41.8,1.95],"Avinyó":[41.8833,2.0],"Balsareny":[41.8667,1.8833],"Callús":[41.75,1.85],"Cardona":[41.9167,1.6833],"Castellbell i el Vilar":[41.6667,1.8833],"Castellgalí":[41.65,1.8667],"Castellnou de Bages":[41.8167,1.8167],"El Pont de Vilomara i Rocafort":[41.7,1.8667],"Fonollosa":[41.7667,1.7],"Gaià":[41.7167,1.7667],"L'Estany":[41.85,2.0667],"Manresa":[41.7333,1.8333],"Marganell":[41.6833,1.9],"Mura":[41.75,1.9],"Navarcles":[41.75,1.9],"Navàs":[41.8833,1.9167],"Rajadell":[41.7333,1.7833],"Sallent":[41.8167,1.9],"Sant Feliu Sasserra":[41.8667,1.9833],"Sant Fruitós de Bages":[41.7333,1.8667],"Sant Joan de Vilatorrada":[41.75,1.8333],"Sant Mateu de Bages":[41.8,1.7333],"Sant Salvador de Guardiola":[41.65,1.8167],"Santa Maria d'Oló":[41.8667,2.0],"Santpedor":[41.75,1.9],"Súria":[41.8333,1.75],"Talamanca":[41.7167,1.9833],"Almoster":[41.1667,1.0833],"Arbolí":[41.2667,1.0167],"Argentera":[41.1333,0.9833],"Botarell":[41.1167,1.0333],"Cambrils":[41.0667,1.05],"Capafonts":[41.3,1.0167],"Castellvell del Camp":[41.1667,1.05],"Colldejou":[41.1333,0.9667],"Cornudella de Montsant":[41.2833,0.9333],"Duesaigües":[41.1667,0.9833],"Les Borges del Camp":[41.15,1.05],"Mont-roig del Camp":[41.0667,0.9667],"Montbrió del Camp":[41.1,1.05],"Prades":[41.3,1.0],"Pratdip":[41.0333,0.9333],"La Riera de Gaià":[41.15,1.1667],"Riudecanyes":[41.15,1.0167],"Riudecols":[41.1667,0.9833],"Reus":[41.15,1.1],"Riudoms":[41.1167,1.05],"La Selva del Camp":[41.2167,1.1333],"Vandellòs i l'Hospitalet de l'Infant":[40.9,0.8667],"Vilaplana":[41.2167,1.0333],"Vinyols i els Arcs":[41.1,1.05],"Aldover":[40.8833,0.5167],"Alfara de Carles":[40.8333,0.6167],"Amposta":[40.7167,0.5833],"Benifallet":[40.9167,0.6],"Bot":[40.9667,0.4667],"Camarles":[40.8167,0.75],"Cherta":[40.9,0.5167],"Deltebre":[40.7333,0.7167],"Flix":[41.2333,0.5333],"Ginestar":[41.0333,0.5833],"Godall":[40.65,0.5167],"L'Aldea":[40.8833,0.6667],"L'Ametlla de Mar":[40.8833,0.7833],"L'Ampolla":[40.8,0.8333],"Mas de Barberans":[40.6833,0.4167],"Miravet":[41.0333,0.5667],"Móra d'Ebre":[41.0833,0.6333],"Móra la Nova":[41.1,0.65],"Paüls":[40.9,0.5333],"Perelló":[40.9,0.7333],"Rasquera":[40.9667,0.6167],"Riba-roja d'Ebre":[41.1667,0.5167],"Santa Bàrbara":[40.7167,0.5],"Tivenys":[40.95,0.5167],"Tortosa":[40.8167,0.5167],"Ulldecona":[40.6,0.4667],"La Palma d'Ebre":[41.15,0.5833],"Xerta":[40.9167,0.5167],"Begur":[41.95,3.2167],"Bellcaire d'Empordà":[42.0,3.0667],"Calonge i Sant Antoni":[41.8667,3.0667],"Castell-Platja d'Aro":[41.8167,3.0667],"Corçà":[41.9667,3.0167],"Cruïlles, Monells i Sant Sadurní de l'Heura":[41.9667,2.9833],"Foixà":[42.05,3.0],"Fontanilles":[42.0167,3.0833],"Forallac":[41.9667,3.0333],"Gualta":[42.0,3.0667],"La Bisbal d'Empordà":[41.9667,3.0333],"Llofriu":[41.9333,3.1],"Palafrugell":[41.9167,3.1667],"Palamós":[41.85,3.1333],"Palau-sator":[42.0,3.0667],"Pals":[41.9833,3.15],"La Pera":[41.9833,2.9667],"Peratallada":[41.9833,3.05],"Regencós":[41.9667,3.1667],"Rupià":[41.9833,3.0167],"Sant Feliu de Guíxols":[41.7833,3.0333],"Santa Cristina d'Aro":[41.8333,2.9833],"Serra de Daró":[42.0167,3.0833],"Torrent":[42.0,3.0833],"Torroella de Montgrí":[42.05,3.1333],"Ullà":[42.05,3.1167],"Ullastret":[42.0,3.0],"Ultramort":[42.05,3.0167],"Vall-llobrega":[41.8833,3.0833],"Verges":[42.0667,3.0333],"Abrera":[41.5167,1.9],"Begues":[41.35,1.9],"Castelldefels":[41.2833,1.9833],"Castellví de Rosanes":[41.45,1.8833],"Cervelló":[41.4167,1.9667],"Collbató":[41.5667,1.8333],"Corbera de Llobregat":[41.4,1.9333],"Cornellà de Llobregat":[41.35,2.0833],"El Papiol":[41.4333,2.0],"El Prat de Llobregat":[41.3167,2.0833],"Esparreguera":[41.5333,1.8667],"Esplugues de Llobregat":[41.3833,2.0833],"Gavà":[41.3,2.0],"L'Hospitalet de Llobregat":[41.3667,2.1],"Martorell":[41.4667,1.9333],"Molins de Rei":[41.4167,2.0],"Olesa de Montserrat":[41.5333,1.8833],"Pallejà":[41.4167,2.0],"Sant Andreu de la Barca":[41.45,1.9667],"Sant Boi de Llobregat":[41.3333,2.0333],"Sant Climent de Llobregat":[41.3667,1.9833],"Sant Esteve Sesrovires":[41.5,1.85],"Sant Feliu de Llobregat":[41.3833,2.05],"Sant Joan Despí":[41.3667,2.0667],"Sant Just Desvern":[41.3833,2.0667],"Sant Vicenç dels Horts":[41.3833,2.0167],"Santa Coloma de Cervelló":[41.3667,2.0],"Torrelles de Llobregat":[41.3667,1.9667],"Vallirana":[41.3833,1.95],"Viladecans":[41.3167,2.0333],"Albinyana":[41.2,1.5333],"Arboç":[41.2833,1.5333],"Banyeres del Penedès":[41.2333,1.5667],"Bellvei":[41.2167,1.5167],"Bonastre":[41.2333,1.4833],"Calafell":[41.2,1.5667],"Cunit":[41.2,1.6167],"El Vendrell":[41.2167,1.5333],"Llorenç del Penedès":[41.2833,1.5],"Masllorenç":[41.2667,1.4667],"La Bisbal del Penedès":[41.2833,1.4833],"Santa Oliva":[41.2333,1.5333],"Torredembarra":[41.15,1.4],"Vespella de Gaià":[41.2,1.4167],"Badalona":[41.45,2.2333],"Barcelona":[41.3833,2.1667],"Sant Adrià de Besòs":[41.4167,2.2167],"Santa Coloma de Gramenet":[41.45,2.2167],"Avià":[42.0,1.8667],"Bagà":[42.2333,1.9],"Berga":[42.1,1.8333],"Borredà":[42.1167,2.0667],"Capolat":[42.1333,1.8667],"Casserres":[42.0167,1.9333],"Cercs":[42.15,1.8667],"Fígols":[42.1667,1.8333],"Gironella":[42.0333,1.8833],"Gisclareny":[42.25,1.85],"Guardiola de Berguedà":[42.2167,1.85],"La Nou de Berguedà":[42.15,1.9],"La Pobla de Lillet":[42.25,2.0],"L'Espunyola":[42.0,1.8],"Montclar":[42.0833,1.7833],"Montmajor":[42.0333,1.75],"Olvan":[42.0,1.8333],"Puig-reig":[41.9833,1.8667],"Quar":[42.05,1.9333],"Sagàs":[42.0333,1.85],"Saldes":[42.2333,1.7167],"Sant Jaume de Frontanyà":[42.2,2.05],"Viver i Serrateix":[42.0,1.7833],"Alp":[42.4,1.8833],"Bolvir":[42.4167,1.8333],"Das":[42.3833,1.9167],"Fontanals de Cerdanya":[42.4333,1.9667],"Ger":[42.4167,1.9],"Guils de Cerdanya":[42.4333,1.85],"Isòvol":[42.4333,1.8833],"Lles de Cerdanya":[42.35,1.7167],"Llívia":[42.4667,1.9833],"Meranges":[42.4,1.8667],"Montellà i Martinet":[42.3333,1.7667],"Prats i Sansor":[42.3833,1.9333],"Prullans":[42.3667,1.8167],"Puigcerdà":[42.4333,1.9333],"Riu de Cerdanya":[42.4167,1.7833],"Urús":[42.4,1.8667],"Barberà de la Conca":[41.4333,1.1833],"Blancafort":[41.5,1.3167],"Conesa":[41.5833,1.2667],"L'Espluga de Francolí":[41.3833,1.1],"Llorac":[41.5167,1.3667],"Montblanc":[41.3833,1.1667],"Piles":[41.5,1.25],"Pontils":[41.5667,1.2833],"Rocafort de Queralt":[41.45,1.3667],"Sarral":[41.45,1.25],"Savallà del Comtat":[41.5333,1.3167],"Senan":[41.4833,1.1333],"Solivella":[41.4667,1.2],"Vallfogona de Riucorb":[41.5167,1.2667],"Vilanova de Prades":[41.3833,1.05],"Vilaverd":[41.3833,1.1333],"Vimbodí i Poblet":[41.3833,1.0667],"Canyelles":[41.2833,1.7667],"Cubelles":[41.2167,1.6667],"Olivella":[41.3,1.8167],"Sant Pere de Ribes":[41.2667,1.75],"Sitges":[41.2333,1.8167],"Vilanova i la Geltrú":[41.2167,1.7333],"Arbeca":[41.5,0.9333],"Les Borges Blanques":[41.5167,0.8667],"Bovera":[41.3667,0.8167],"Castelldans":[41.4667,0.8667],"Cervià de les Garrigues":[41.4833,0.9333],"El Cogul":[41.4,0.7833],"El Soleràs":[41.3833,0.9167],"Fulleda":[41.5,1.0167],"Granyena de les Garrigues":[41.45,0.8833],"El Vilosell":[41.4,0.95],"Juncosa":[41.35,0.8167],"Juneda":[41.55,0.8167],"L'Albi":[41.4667,0.9],"La Floresta":[41.4833,0.9],"Maldà":[41.5667,1.0],"Omellons":[41.4333,0.9167],"La Pobla de Cérvoles":[41.4167,0.9333],"Puiggròs":[41.5333,0.9],"Tarrés":[41.4167,0.95],"Vinaixa":[41.4333,0.9167],"Argelaguer":[42.2,2.7833],"Besalú":[42.2,2.7],"Beuda":[42.2667,2.7333],"Les Planes d'Hostoles":[41.9833,2.5667],"Les Preses":[42.1167,2.5],"Maià de Montcal":[42.2333,2.6833],"Mieres":[42.1667,2.6167],"Montagut i Oix":[42.25,2.6667],"Olot":[42.1833,2.4833],"Riudaura":[42.1667,2.45],"Sales de Llierca":[42.2167,2.7],"Sant Aniol de Finestres":[42.1,2.6667],"Sant Feliu de Pallerols":[41.9833,2.5333],"Sant Ferriol":[42.2,2.7167],"Sant Jaume de Llierca":[42.2167,2.7167],"Santa Pau":[42.15,2.5667],"Tortellà":[42.2167,2.7167],"Vall de Bianya":[42.2167,2.5],"Vall d'en Bas":[42.1167,2.4667],"Aiguaviva":[41.9333,2.8333],"Bescanó":[41.95,2.8],"Campllong":[41.9,2.85],"Cassà de la Selva":[41.8833,2.8667],"Celrà":[41.9833,2.9],"Cervià de Ter":[42.05,2.9833],"Flaçà":[42.0,2.9333],"Fornells de la Selva":[41.9667,2.8667],"Girona":[41.9833,2.8167],"Juià":[41.9667,2.9],"Llagostera":[41.8333,2.8833],"Llambilles":[41.9,2.8333],"Madremanya":[41.9833,2.9167],"Quart":[41.95,2.8833],"Riudellots de la Selva":[41.95,2.8667],"Salt":[41.9833,2.7833],"Sant Andreu Salou":[41.9667,2.85],"Sant Gregori":[41.9833,2.7833],"Sant Joan de Mollet":[42.0167,2.9167],"Sant Jordi Desvalls":[42.0333,2.9667],"Sant Julià de Ramis":[41.9833,2.8833],"Sant Martí de Llémena":[42.0667,2.7833],"Sant Martí Vell":[42.0167,2.9167],"Sarrià de Ter":[42.0,2.8333],"Vilablareix":[41.9667,2.8167],"Viladasens":[42.0167,2.9833],"Vilobi d'Onyar":[41.9167,2.8333],"Alella":[41.4833,2.2833],"Arenys de Mar":[41.5833,2.55],"Arenys de Munt":[41.6167,2.5333],"Argentona":[41.55,2.4167],"Cabrera de Mar":[41.5333,2.3667],"Cabrils":[41.5167,2.3667],"Caldes d'Estrac":[41.5833,2.4833],"Calella":[41.6167,2.6667],"Canet de Mar":[41.5833,2.5833],"Dosrius":[41.5667,2.4167],"El Masnou":[41.4833,2.3167],"Malgrat de Mar":[41.65,2.7333],"Mataró":[41.5333,2.45],"Montgat":[41.4667,2.2667],"Òrrius":[41.5167,2.3833],"Palafolls":[41.6833,2.75],"Pineda de Mar":[41.6333,2.6833],"Premià de Dalt":[41.5167,2.35],"Premià de Mar":[41.5,2.3667],"Sant Andreu de Llavaneres":[41.5667,2.4833],"Sant Cebrià de Vallalta":[41.6167,2.6167],"Sant Iscle de Vallalta":[41.6167,2.5667],"Sant Pol de Mar":[41.6167,2.6333],"Sant Vicenç de Montalt":[41.5833,2.5167],"Santa Susanna":[41.65,2.7],"Teià":[41.5,2.3],"Tiana":[41.4833,2.2833],"Tordera":[41.7,2.7167],"Vilassar de Dalt":[41.5333,2.3833],"Vilassar de Mar":[41.5,2.3833],"Alcanar":[40.5333,0.4833],"Freginals":[40.6167,0.45],"La Galera":[40.65,0.4833],"La Sénia":[40.65,0.2833],"Masdenverge":[40.6833,0.5667],"Sant Carles de la Ràpita":[40.6167,0.5833],"Sant Jaume d'Enveja":[40.7167,0.7167],"Àger":[41.9833,0.75],"Albesa":[41.75,0.8667],"Alfarràs":[41.8333,0.7167],"Algerri":[41.8167,0.7833],"Alòs de Balaguer":[41.95,1.1],"Artesa de Segre":[41.9,1.05],"Balaguer":[41.7833,0.8],"Baronia de Rialb":[41.9667,1.1667],"Cabanabona":[41.85,1.1167],"Castelló de Farfanya":[41.8833,0.9167],"Camarasa":[41.8667,0.9167],"Cubells":[41.8167,1.0],"Foradada":[41.85,1.0667],"Gavet de la Conca":[42.0667,0.9333],"Ivars de Noguera":[41.7833,0.85],"La Sentiu de Sió":[41.75,1.0],"Les Avellanes i Santa Linya":[41.95,0.9667],"Menarguens":[41.7167,0.8333],"Montgai":[41.8167,0.8667],"Oliola":[41.9,1.1],"Os de Balaguer":[41.9167,0.8333],"Penelles":[41.7833,1.0333],"Ponts":[41.9167,1.1833],"Preixens":[41.7833,1.0333],"Sant Llorenç de Montgai":[41.8167,0.8833],"Térmens":[41.7667,0.8833],"Torrelameu":[41.7333,0.8833],"Tragó de Noguera":[41.9,0.9167],"Vallfogona de Balaguer":[41.7667,0.9333],"Vilanova de l'Aguda":[41.8667,1.1167],"Vilanova de Meià":[41.9333,1.0667],"Alpens":[42.1,2.2167],"Balenyà":[41.8333,2.2333],"Centelles":[41.8,2.2167],"El Brull":[41.8333,2.3],"Espinelves":[41.8667,2.45],"Folgueroles":[41.9333,2.3833],"Gurb":[41.9167,2.3167],"L'Esquirol":[41.9833,2.4667],"La Gleva":[41.9,2.2833],"Les Masies de Roda":[41.9167,2.35],"Les Masies de Voltregà":[41.9833,2.2833],"Lluçà":[42.0,2.0667],"Malla":[41.9,2.3333],"Manlleu":[41.9833,2.2833],"Montesquiu":[42.0667,2.25],"Muntanyola":[41.85,2.2167],"Olost":[41.9667,2.1333],"Oristà":[41.9,2.1],"Orís":[42.05,2.2333],"Perafita":[42.0,2.1833],"Prats de Lluçanès":[42.0,2.05],"Rupit i Pruit":[42.0333,2.5],"Roda de Ter":[41.9833,2.3167],"Sant Agustí de Lluçanès":[42.0333,2.1167],"Sant Bartomeu del Grau":[41.9833,2.0833],"Sant Boi de Lluçanès":[41.9667,2.1167],"Sant Hipòlit de Voltregà":[41.9833,2.2667],"Sant Julià de Vilatorta":[41.8833,2.35],"Sant Martí d'Albars":[42.0333,2.1667],"Sant Martí de Centelles":[41.8167,2.25],"Sant Pere de Torelló":[42.05,2.2667],"Sant Quirze de Besora":[42.1,2.2333],"Sant Sadurní d'Osormort":[41.8833,2.4833],"Sant Vicenç de Torelló":[42.0167,2.2667],"Santa Cecília de Voltregà":[41.9833,2.2667],"Santa Eulàlia de Riuprimer":[41.8667,2.2833],"Seva":[41.8167,2.3333],"Sobremunt":[42.0167,2.1667],"Sora":[42.0667,2.2167],"Taradell":[41.8667,2.2833],"Tavèrnoles":[41.95,2.3667],"Tavertet":[42.0,2.4833],"Tona":[41.85,2.2167],"Torelló":[42.05,2.2667],"Vic":[41.9333,2.2533],"Vidrà":[42.1,2.3],"Viladrau":[41.8333,2.4],"Vilanova de Sau":[41.95,2.45],"Abella de la Conca":[42.1167,1.0667],"Isona i Conca Dellà":[42.0333,1.0667],"Castell de Mur":[42.1333,0.9167],"Conca de Dalt":[42.2,0.9833],"La Pobla de Segur":[42.2333,0.9667],"La Torre de Cabdella":[42.3833,1.0167],"Llimiana":[42.0333,0.9],"Salàs de Pallars":[42.0,0.8667],"Sant Esteve de la Sarga":[42.0667,0.8667],"Senterada":[42.2833,0.9333],"Talarn":[42.2,0.9333],"Tremp":[42.1667,0.8833],"Alins":[42.5833,1.25],"Alt Àneu":[42.6333,1.1167],"Baix Pallars":[42.2833,1.0667],"Espot":[42.5667,1.0833],"Esterri d'Àneu":[42.6167,1.1333],"Esterri de Cardós":[42.55,1.2833],"Farrera":[42.5,1.2333],"Guingueta d'Àneu":[42.6,1.1167],"Lladorre":[42.5833,1.25],"Llavorsí":[42.4667,1.1667],"Rialp":[42.4333,1.1333],"Soriguera":[42.3333,1.1167],"Sort":[42.4,1.1333],"Tírvia":[42.5,1.2667],"Vall de Cardós":[42.5333,1.25],"Barbens":[41.6667,0.9667],"Bellpuig":[41.6167,1.0],"Bellvís":[41.6667,0.9],"El Palau d'Anglesola":[41.6833,0.9333],"Golmés":[41.6333,1.0],"Ivars d'Urgell":[41.6833,0.9667],"Linyola":[41.7,0.9333],"Miralcamp":[41.6667,1.0167],"Mollerussa":[41.6333,0.9],"Sidamon":[41.65,0.9167],"Torregrossa":[41.5833,0.9667],"Vilanova de Bellpuig":[41.6333,1.0167],"Vila-sana":[41.6333,0.9167],"Banyoles":[42.1167,2.7667],"Camós":[42.1333,2.8],"Cornellà del Terri":[42.1,2.8667],"Crespià":[42.1833,2.8333],"Esponellà":[42.1667,2.8],"Fontcoberta":[42.1333,2.8167],"Palol de Revardit":[42.1,2.8833],"Porqueres":[42.1167,2.75],"Sant Miquel de Campmajor":[42.1667,2.7167],"Serinyà":[42.1833,2.7667],"Bellmunt del Priorat":[41.1667,0.8333],"Cabacés":[41.2167,0.8],"Capçanes":[41.1333,0.9167],"El Lloar":[41.1833,0.85],"La Bisbal de Falset":[41.1833,0.8667],"La Figuera":[41.2167,0.8667],"La Morera de Montsant":[41.25,0.9],"La Torre de Fontaubella":[41.1667,0.9167],"La Vilella Alta":[41.2,0.8],"La Vilella Baixa":[41.2,0.8167],"Margalef":[41.25,0.75],"Marçà":[41.1167,0.9167],"Masroig":[41.1667,0.8167],"Molar":[41.15,0.8],"Poboleda":[41.2333,0.8833],"Porrera":[41.2,0.9],"Pradell de la Teixeta":[41.15,0.9],"Torroja del Priorat":[41.2,0.8833],"Ulldemolins":[41.3167,0.9167],"Vinebre":[41.1333,0.6167],"Ascó":[41.2,0.5667],"Benissanet":[41.05,0.65],"Corbera d'Ebre":[41.05,0.5167],"Garcia":[41.1,0.8167],"La Torre de l'Espanyol":[41.15,0.7333],"Tivissa":[41.0667,0.8667],"Campdevànol":[42.2167,2.1667],"Campelles":[42.2667,2.1833],"Camprodon":[42.3167,2.3667],"Gombrèn":[42.2167,2.1],"La Vall de Bianya":[42.2167,2.5],"Llanars":[42.3,2.3167],"Molló":[42.35,2.3833],"Ogassa":[42.2,2.1167],"Planoles":[42.3,2.2],"Queralbs":[42.35,2.1167],"Ribas de Freser":[42.3,2.1667],"Ripoll":[42.2,2.1833],"Sant Joan de les Abadesses":[42.2167,2.3],"Sant Pau de Segúries":[42.2667,2.35],"Setcases":[42.3667,2.3167],"Toses":[42.3167,2.05],"Vallfogona de Ripollès":[42.2333,2.3167],"Biosca":[41.8,1.3167],"Cervera":[41.6667,1.2667],"Estaràs":[41.7333,1.3667],"Els Plans de Sió":[41.7,1.2167],"Forès":[41.5167,1.3167],"Freixenet":[41.8167,1.3333],"Guissona":[41.7833,1.3],"Ivorra":[41.7333,1.3167],"Massoteres":[41.7833,1.2833],"Montoliu de Segarra":[41.6833,1.2167],"Montornès de Segarra":[41.6833,1.2833],"Pallerols":[41.7667,1.2667],"La Molsosa":[41.8667,1.4667],"Sanaüja":[41.8667,1.2667],"Sant Guim de Freixenet":[41.75,1.3],"Sant Ramon":[41.7167,1.35],"Sedó":[41.7333,1.3],"Talavera":[41.65,1.3167],"Tarroja de Segarra":[41.7667,1.2833],"Torà":[41.8167,1.3333],"Vergós Guerrejat":[41.8,1.2667],"Aitona":[41.4833,0.5333],"Alcarràs":[41.5667,0.5167],"Alcoletge":[41.65,0.7],"Alguaire":[41.7167,0.5833],"Almacelles":[41.7167,0.4667],"Almenar":[41.8,0.6833],"Alpicat":[41.65,0.5833],"Artesa de Lleida":[41.5,0.7833],"Aspa":[41.4167,0.7167],"Benavent de Segrià":[41.7,0.7],"Corbins":[41.7333,0.6833],"Gimenells i el Pla de la Font":[41.6167,0.4667],"La Granja d'Escarp":[41.35,0.4833],"La Portella":[41.8167,0.6667],"Lleida":[41.6167,0.6167],"Llardecans":[41.35,0.5667],"Maials":[41.3667,0.6333],"Massalcoreig":[41.45,0.5],"Montoliu de Lleida":[41.5833,0.65],"Puigverd de Lleida":[41.5667,0.7],"Rosselló":[41.7667,0.6833],"Sarroca de Lleida":[41.4167,0.7],"Seròs":[41.4667,0.4167],"Soses":[41.5167,0.5],"Sudanell":[41.5167,0.6333],"Sunyer":[41.55,0.6],"Torrefarrera":[41.6667,0.6167],"Torres de Segre":[41.5333,0.6333],"Vilanova de la Barca":[41.6667,0.7833],"Amer":[41.9833,2.5667],"Anglès":[41.95,2.6333],"Arbúcies":[41.8167,2.5333],"Blanes":[41.6667,2.7833],"Breda":[41.7333,2.6167],"Brunyola i Sant Martí Sapresa":[41.95,2.7333],"Caldes de Malavella":[41.8333,2.8],"Fogars de la Selva":[41.7,2.7167],"Hostalric":[41.75,2.6333],"Lloret de Mar":[41.7,2.8333],"Maçanet de la Selva":[41.7833,2.7333],"Massanes":[41.7833,2.6167],"Osor":[41.9333,2.5167],"Riells i Viabrea":[41.7167,2.5667],"Riudarenes":[41.8333,2.7],"Sant Feliu de Buixalleu":[41.8167,2.6333],"Sant Hilari Sacalm":[41.8667,2.5],"Sant Julià del Llor i Bonmatí":[41.9667,2.7],"Santa Coloma de Farners":[41.8667,2.6667],"Sils":[41.8,2.7333],"Susqueda":[41.9833,2.5],"Tossa de Mar":[41.7167,2.9333],"Vidreres":[41.7833,2.7667],"Clariana de Cardener":[41.9333,1.5833],"Guixers":[42.1167,1.7],"Lladurs":[41.95,1.5667],"Llobera":[41.9333,1.4833],"Navès":[42.0667,1.7333],"Olius":[41.9833,1.5333],"Pinell de Solsonès":[41.9667,1.55],"Riner":[41.9167,1.5167],"Sant Llorenç de Morunys":[42.1333,1.5833],"Solsona":[41.9833,1.5167],"Altafulla":[41.15,1.3667],"Canonja":[41.1333,1.1833],"Constantí":[41.1833,1.2],"El Morell":[41.2,1.25],"Els Pallaresos":[41.2,1.2],"La Nou de Gaià":[41.2167,1.3167],"La Secuita":[41.2167,1.25],"Perafort":[41.2,1.2167],"Pobla de Mafumet":[41.2,1.2167],"Roda de Berà":[41.1833,1.45],"Salomó":[41.2833,1.3],"Salou":[41.0667,1.15],"Tarragona":[41.1167,1.2333],"Vila-seca":[41.1167,1.15],"Vilallonga del Camp":[41.2167,1.2333],"Arnes":[40.9,0.3167],"Batea":[41.05,0.3167],"Caseres":[41.0167,0.35],"El Pinell de Brai":[41.05,0.5667],"Gandesa":[41.05,0.4333],"Horta de Sant Joan":[40.95,0.3167],"La Fatarella":[41.15,0.4667],"La Pobla de Massaluca":[41.1333,0.4333],"Nonasp":[41.1667,0.2333],"Prat de Comte":[40.9667,0.3667],"Vilalba dels Arcs":[41.0167,0.3667],"Agramunt":[41.7833,1.1],"Anglesola":[41.6667,1.0167],"Belianes":[41.5833,1.1],"Els Omells de na Gaia":[41.5,1.1167],"Guimerà":[41.5333,1.1833],"Nalec":[41.5833,1.1333],"Ossó de Sió":[41.7333,1.0833],"Preixana":[41.5833,1.0167],"Puigverd d'Agramunt":[41.8167,1.0667],"Tàrrega":[41.6333,1.15],"Tornabous":[41.6667,1.0333],"Vallbona de les Monges":[41.5,1.1667],"Verdú":[41.6167,1.1667],"Vilagrassa":[41.6333,1.1167],"Arres":[42.7333,0.8667],"Bausen":[42.7167,0.8167],"Bòrdes":[42.6833,0.9],"Canejan":[42.7333,0.75],"Es Bòrdes":[42.6833,0.9],"Mont":[42.7333,0.8333],"Naut Aran":[42.7,1.1167],"Vielha e Mijaran":[42.7,0.7833],"Badia del Vallès":[41.5,2.1667],"Barberà del Vallès":[41.5167,2.1333],"Castellbisbal":[41.4667,1.9833],"Cerdanyola del Vallès":[41.4833,2.1333],"Gallifa":[41.6667,2.1333],"Matadepera":[41.6,2.0],"Montcada i Reixac":[41.4833,2.1833],"Palau-solità i Plegamans":[41.5833,2.1667],"Polinyà":[41.5667,2.15],"Rellinars":[41.6167,1.9],"Ripollet":[41.4833,2.1667],"Rubí":[41.4833,2.0333],"Sabadell":[41.5333,2.1],"Sant Cugat del Vallès":[41.4667,2.0833],"Sant Llorenç Savall":[41.6667,2.0167],"Sant Quirze del Vallès":[41.5167,2.0833],"Sentmenat":[41.6,2.1333],"Terrassa":[41.5667,2.0],"Ullastrell":[41.5167,1.9833],"Vacarisses":[41.5667,1.8833],"Viladecavalls":[41.5667,1.95],"Aiguafreda":[41.7667,2.3167],"Bigues i Riells":[41.7333,2.25],"Caldes de Montbui":[41.6333,2.1667],"Campins":[41.7167,2.4167],"Canovelles":[41.6,2.2667],"Cànoves i Samalús":[41.7,2.3167],"Cardedeu":[41.6333,2.3667],"Figaró-Montmany":[41.7167,2.3],"Fogars de Montclús":[41.8,2.5333],"Franqueses del Vallès":[41.5667,2.3],"Granera":[41.7333,2.1667],"Granollers":[41.6,2.2833],"La Garriga":[41.6833,2.3],"La Roca del Vallès":[41.6,2.3167],"Llinars del Vallès":[41.6167,2.4],"Mollet del Vallès":[41.5333,2.2167],"Montseny":[41.7833,2.4333],"Montmeló":[41.55,2.25],"Montornès del Vallès":[41.5667,2.2833],"Parets del Vallès":[41.5667,2.2167],"Sant Antoni de Vilamajor":[41.7,2.3667],"Sant Celoni":[41.6833,2.5],"Sant Esteve de Palautordera":[41.7167,2.4333],"Sant Feliu de Codines":[41.7,2.1667],"Sant Fost de Campsentelles":[41.5167,2.25],"Sant Pere de Vilamajor":[41.7167,2.3833],"Sant Quirze Safaja":[41.7667,2.1833],"Santa Eulàlia de Ronçana":[41.6,2.2167],"Santa Maria de Martorelles":[41.5,2.25],"Santa Maria de Palautordera":[41.7333,2.4167],"Tagamanent":[41.75,2.35],"Vallgorguina":[41.7,2.4667],"Vallromanes":[41.5333,2.3167],"Vilalba Sasserra":[41.65,2.5167],"Vilanova del Vallès":[41.5667,2.3167]};
+
+// ─────────────────────────────────────────
+//  INICIALITZAR DESPLEGABLES
+// ─────────────────────────────────────────
+function initDropdowns() {
+  const comarcaSel = document.getElementById('comarca-select');
+  const T = LANGS[currentLang];
+  comarcaSel.innerHTML = '<option value="">' + (T.opt_comarca || '— Seleccioneu comarca —') + '</option>';
+  Object.keys(COMARQUES).sort().forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c; opt.textContent = c;
+    comarcaSel.appendChild(opt);
+  });
+}
+
+function onComarcaChange() {
+  const comarca = document.getElementById('comarca-select').value;
+  const municipiSel = document.getElementById('municipi-select');
+  const T = LANGS[currentLang];
+  if (!comarca) {
+    municipiSel.innerHTML = '<option value="">' + (T.opt_municipi_first || '— Primer comarca —') + '</option>';
+    municipiSel.disabled = true;
+    return;
+  }
+  const municipis = COMARQUES[comarca] || [];
+  municipiSel.innerHTML = '<option value="">' + (T.opt_municipi || '— Seleccioneu municipi —') + '</option>';
+  municipis.slice().sort().forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m; opt.textContent = m;
+    municipiSel.appendChild(opt);
+  });
+  municipiSel.disabled = false;
+}
+
+function geolocate() {
+  if (!navigator.geolocation) { showError('El navegador no suporta geolocalització.'); return; }
+  navigator.geolocation.getCurrentPosition(pos => {
+    currentLat = pos.coords.latitude;
+    currentLon = pos.coords.longitude;
+    // Trobar el municipi més proper
+    let bestMunicipi = null, bestComarca = null, bestDist = Infinity;
+    for (const [comarca, municipis] of Object.entries(COMARQUES)) {
+      for (const m of municipis) {
+        const coords = COORDS[m];
+        if (!coords) continue;
+        const d = Math.hypot(coords[0] - currentLat, coords[1] - currentLon);
+        if (d < bestDist) { bestDist = d; bestMunicipi = m; bestComarca = comarca; }
+      }
+    }
+    if (bestComarca) {
+      document.getElementById('comarca-select').value = bestComarca;
+      onComarcaChange();
+      document.getElementById('municipi-select').value = bestMunicipi;
+      currentLocation = bestMunicipi + ', ' + bestComarca;
+    }
+    fetchWeather();
+  }, () => showError('No s\'ha pogut obtenir la ubicació.'));
+}
+
+function startSearch() {
+  hidePicker();
+  showError('');
+  const comarca = document.getElementById('comarca-select').value;
+  const municipi = document.getElementById('municipi-select').value;
+  if (!comarca) { showError(LANGS[currentLang].err_comarca || 'Seleccioneu una comarca.'); return; }
+  if (!municipi) { showError(LANGS[currentLang].err_municipi || 'Seleccioneu un municipi.'); return; }
+  const coords = COORDS[municipi];
+  if (!coords) { showError('No s\'han trobat les coordenades de ' + municipi); return; }
+  currentLat = coords[0];
+  currentLon = coords[1];
+  currentLocation = municipi + ', ' + comarca;
+  fetchWeather();
+}
+
+function hidePicker() {
+  const p = document.getElementById('location-picker');
+  if (p) p.remove();
+}
+
+function resetBtn() {
+  const btn = document.getElementById('btn-search');
+  if (btn) btn.innerHTML = '🔍 <span id="lbl-search">' + (LANGS[currentLang]||LANGS.ca).lbl_search + '</span>';
+  if (btn) btn.disabled = false;
+}
+
+async function fetchWeather() {
+  const btn = document.getElementById('btn-search');
+  if (btn) { btn.disabled = true; btn.innerHTML = '⏳'; }
+  try {
+    const params = new URLSearchParams({
+      latitude: currentLat,
+      longitude: currentLon,
+      timezone: 'auto',
+      forecast_days: '16',
+      wind_speed_unit: 'kmh',
+      daily: [
+        'temperature_2m_max','temperature_2m_min','precipitation_sum',
+        'precipitation_probability_max','wind_speed_10m_max','wind_gusts_10m_max',
+        'weather_code','sunshine_duration','uv_index_max',
+        'et0_fao_evapotranspiration','snowfall_sum',
+        'sunrise','sunset','wind_direction_10m_dominant'
+      ].join(','),
+      hourly: [
+        'temperature_2m','precipitation_probability','precipitation',
+        'wind_speed_10m','weather_code','relative_humidity_2m',
+        'apparent_temperature','surface_pressure','soil_temperature_0cm'
+      ].join(',')
+    });
+
+    const res = await fetch('https://api.open-meteo.com/v1/forecast?' + params.toString());
+    const data = await res.json();
+
+    if (!res.ok || data.error) {
+      throw new Error(data.reason || data.error || `HTTP ${res.status}`);
+    }
+
+    forecastData = data.daily;
+    hourlyData = data.hourly;
+    selectedDayIdx = 0;
+
+    document.getElementById('welcome-msg').style.display = 'none';
+    document.getElementById('forecast-area').style.display = 'block';
+    document.getElementById('location-title').textContent = '📍 ' + currentLocation;
+    document.getElementById('location-coords').textContent =
+      currentLat.toFixed(3) + '°N ' + currentLon.toFixed(3) + '°E';
+
+    renderStrip();
+    renderDay(0);
+
+  } catch(e) {
+    showError('Error en obtenir les dades meteorològiques: ' + e.message);
+  } finally {
+    resetBtn();
+  }
+}
+
+// ─────────────────────────────────────────
+//  RENDER FORECAST STRIP (16 days)
+// ─────────────────────────────────────────
+function renderStrip() {
+  const T = LANGS[currentLang];
+  const strip = document.getElementById('forecast-strip');
+  strip.innerHTML = '';
+  forecastData.time.forEach((dateStr, i) => {
+    const d = new Date(dateStr + 'T12:00:00');
+    const info = wmoInfo(forecastData.weather_code[i], currentLang);
+    const tmax = Math.round(forecastData.temperature_2m_max[i]);
+    const tmin = Math.round(forecastData.temperature_2m_min[i]);
+    const card = document.createElement('div');
+    card.className = 'day-card' + (i === 0 ? ' active' : '');
+    card.innerHTML = `
+      <div class="dc-dow">${T.days[d.getDay()]}</div>
+      <div class="dc-day">${d.getDate()} ${T.months[d.getMonth()]}</div>
+      <div class="dc-icon">${info.icon}</div>
+      <div class="dc-temp"><span>${tmax}°</span> / ${tmin}°</div>
+    `;
+    card.onclick = () => {
+      document.querySelectorAll('.day-card').forEach(c => c.classList.remove('active'));
+      card.classList.add('active');
+      selectedDayIdx = i;
+      renderDay(i);
+    };
+    strip.appendChild(card);
+  });
+}
+
+// ─────────────────────────────────────────
+//  RENDER DAY DETAIL
+// ─────────────────────────────────────────
+function renderDay(i) {
+  const T = LANGS[currentLang];
+  const d = forecastData;
+  const dateStr = d.time[i]; // definir PRIMER per usar-lo arreu
+  const info = wmoInfo(d.weather_code[i], currentLang);
+  const tmax = Math.round(d.temperature_2m_max[i]);
+  const tmin = Math.round(d.temperature_2m_min[i]);
+
+  // Temperatura a mostrar: actual si és avui, màxima prevista si és futur
+  const todayStr = new Date().toISOString().slice(0,10);
+  const isToday = dateStr === todayStr;
+  let displayTemp = null;
+  let tempLabel = '';
+  if (isToday && hourlyData) {
+    const nowHour = new Date().getHours();
+    const idx = hourlyData.time.findIndex(t => t.startsWith(dateStr) && new Date(t).getHours() === nowHour);
+    if (idx !== -1 && hourlyData.temperature_2m[idx] != null) {
+      displayTemp = Math.round(hourlyData.temperature_2m[idx]);
+      tempLabel = T.lbl_temp_now || 'Temperatura actual';
+    }
+  }
+  if (displayTemp === null) {
+    displayTemp = tmax;
+    tempLabel = T.lbl_temp_max || 'Màxima prevista';
+  }
+
+  document.getElementById('d-icon').textContent = info.icon;
+  document.getElementById('d-temp').textContent = displayTemp + '°C';
+  document.getElementById('d-temp-label').textContent = tempLabel;
+  document.getElementById('d-desc').textContent = info.desc;
+
+  const tempColor = displayTemp < 5 ? 'var(--rain)' : displayTemp < 15 ? 'var(--sky)' : displayTemp < 28 ? 'var(--leaf)' : displayTemp < 35 ? 'var(--sun)' : '#C0392B';
+  document.getElementById('d-temp').style.color = tempColor;
+
+  const sunH = d.sunshine_duration && d.sunshine_duration[i] !== null ? (d.sunshine_duration[i] / 3600).toFixed(1) : '—';
+
+  // Dades horàries per calcular humitat, pressió i temperatura del sòl
+  let rhVals = [], pressVals = [], soilVals = [];
+  if (hourlyData) {
+    hourlyData.time.forEach((t, hi) => {
+      if (t.startsWith(dateStr)) {
+        if (hourlyData.relative_humidity_2m[hi] != null) rhVals.push(hourlyData.relative_humidity_2m[hi]);
+        if (hourlyData.surface_pressure[hi] != null) pressVals.push(hourlyData.surface_pressure[hi]);
+        if (hourlyData.soil_temperature_0cm[hi] != null) soilVals.push(hourlyData.soil_temperature_0cm[hi]);
+      }
+    });
+  }
+  const avg = arr => arr.length ? arr.reduce((a,b) => a+b, 0) / arr.length : null;
+  const rhAvg = avg(rhVals);
+  const pressAvg = avg(pressVals);
+  const soilMax = soilVals.length ? Math.max(...soilVals) : null;
+
+  const soilT = soilMax !== null ? Math.round(soilMax) + '°C' : '—';
+  const rh = rhAvg !== null ? Math.round(rhAvg) + '%' : '—';
+  const pres = pressAvg !== null ? Math.round(pressAvg) + ' hPa' : '—';
+  const winDir = d.wind_direction_10m_dominant && d.wind_direction_10m_dominant[i] !== null ? windDirArrow(d.wind_direction_10m_dominant[i]) : '';
+
+  const metrics = [
+    { key: 'tmax', val: tmax + '°C' },
+    { key: 'tmin', val: tmin + '°C' },
+    { key: 'rain', val: (d.precipitation_sum[i] || 0).toFixed(1) + ' mm' },
+    { key: 'precip_prob', val: (d.precipitation_probability_max[i] || 0) + '%' },
+    { key: 'wind', val: Math.round(d.wind_speed_10m_max[i]) + ' km/h ' + winDir },
+    { key: 'gust', val: Math.round(d.wind_gusts_10m_max[i]) + ' km/h' },
+    { key: 'humidity', val: rh },
+    { key: 'pressure', val: pres },
+  ];
+  document.getElementById('metrics-grid').innerHTML = metrics.map(m =>
+    `<div class="metric"><div class="metric-label">${T.metrics[m.key]}</div><div class="metric-value">${m.val}</div></div>`
+  ).join('');
+
+  // Fase lunar
+  const dayDateObj = new Date(dateStr + 'T12:00:00');
+  const mIcon = moonIcon(dayDateObj);
+  const mName = moonPhaseName(dayDateObj, currentLang);
+  const mPhaseVal = moonPhase(dayDateObj);
+  const moonAgri = getMoonAgriculturalTip(mPhaseVal, currentLang);
+
+  const agro = [
+    { key: 'uv', val: (d.uv_index_max[i] || 0).toFixed(1) + ' / 11' },
+    { key: 'sunshine', val: sunH + ' h' },
+    { key: 'et', val: d.et0_fao_evapotranspiration ? (d.et0_fao_evapotranspiration[i] || 0).toFixed(1) + ' mm/d' : '—' },
+    { key: 'soiltemp', val: soilT },
+    { key: 'snow', val: d.snowfall_sum ? (d.snowfall_sum[i] || 0).toFixed(1) + ' cm' : '—' },
+    { key: 'frost', val: tmin < 2 ? '⚠️ Sí' : tmin < 5 ? '⚠️ Risc' : '✅ No' },
+  ];
+  document.getElementById('agro-grid').innerHTML = agro.map(m =>
+    `<div class="metric"><div class="metric-label">${T.metrics[m.key]}</div><div class="metric-value">${m.val}</div></div>`
+  ).join('');
+
+  // Panell de lluna separat
+  document.getElementById('moon-panel').innerHTML = `
+    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:0.75rem;">
+      <div style="font-size:3rem;line-height:1;">${mIcon}</div>
+      <div>
+        <div style="font-weight:600;font-size:1rem;color:var(--text);">${mName}</div>
+        <div style="font-size:0.78rem;color:var(--text-muted);margin-top:0.1rem;">${T.metrics.moon_cycle || 'Cicle lunar'}: ${Math.round(mPhaseVal * 29.53)} / 29 ${T.metrics.moon_days || 'dies'}</div>
+      </div>
+    </div>
+    <div style="background:var(--bg);border-radius:var(--radius-sm);padding:0.7rem 0.9rem;font-size:0.85rem;color:var(--text);line-height:1.65;">
+      ${moonAgri}
+    </div>
+  `;
+
+  renderHourly(i);
+  triggerAIRecommendation(i);
+}
+
+// ─────────────────────────────────────────
+//  CONSELLS AGRÍCOLES PER FASE LUNAR
+// ─────────────────────────────────────────
+function getMoonAgriculturalTip(phase, lang) {
+  // Determinar fase: nova(0), creixent(1), plena(2), minvant(3)
+  let period;
+  if (phase < 0.125 || phase >= 0.875) period = 0;      // lluna nova
+  else if (phase < 0.375) period = 1;                    // quart creixent
+  else if (phase < 0.625) period = 2;                    // lluna plena
+  else period = 3;                                       // quart minvant
+
+  const tips = {
+    ca: [
+      '🌱 <strong>Lluna nova:</strong> Moment ideal per llaurar, abonar i preparar el sòl. Les llavors sembrades ara tindran una germinació lenta però arrels fortes. Bon moment per podar per reduir el creixement.',
+      '🌿 <strong>Lluna creixent:</strong> La saba puja cap a les parts aèries. Excel·lent per sembrar plantes de fruit i fullatge. Bon moment per trasplantar, replantar i aplicar adobs foliars. Eviteu podar.',
+      '🌕 <strong>Lluna plena:</strong> Màxima activitat vital. Les plantes absorbeixen millor l\'aigua i els nutrients. Ideal per collir fruita i verdures destinades al consum immediat o conserva. Bones condicions per aplicar fitosanitaris naturals.',
+      '🍂 <strong>Lluna minvant:</strong> La saba baixa cap a les arrels. Perfecte per collir tubercles, arrels i bulbs destinats a conservació llarga. Bon moment per podar arbres, eliminar males herbes i aplicar herbicides.',
+    ],
+    es: [
+      '🌱 <strong>Luna nueva:</strong> Momento ideal para labrar, abonar y preparar el suelo. Las semillas sembradas ahora tendrán germinación lenta pero raíces fuertes. Buen momento para podar con el objetivo de reducir el crecimiento.',
+      '🌿 <strong>Luna creciente:</strong> La savia sube hacia las partes aéreas. Excelente para sembrar plantas de fruto y follaje. Buen momento para trasplantar y aplicar abonos foliares. Evitad podar.',
+      '🌕 <strong>Luna llena:</strong> Máxima actividad vital. Las plantas absorben mejor el agua y los nutrientes. Ideal para cosechar frutas y verduras para consumo inmediato o conserva. Buenas condiciones para fitosanitarios naturales.',
+      '🍂 <strong>Luna menguante:</strong> La savia baja hacia las raíces. Perfecto para cosechar tubérculos, raíces y bulbos para conservación larga. Buen momento para podar árboles, eliminar malas hierbas y aplicar herbicidas.',
+    ],
+    eu: [
+      '🌱 <strong>Ilberria:</strong> Lurra landu, ongarritu eta prestatzeko une egokia. Orain ereindako haziek ernamuinketa motela izango dute baina sustraiak sendo. Hazkuntza murrizteko inausketa egiteko garaia.',
+      '🌿 <strong>Ilargi gora:</strong> Izerdia gora doa airezko ataletan. Fruta eta hostaje landareak ereiteko bikaina. Transplantatzeko eta hosto ongarriak aplikatzeko garaia. Ez inausi.',
+      '🌕 <strong>Beteilargia:</strong> Bizitza-jarduera maximoa. Landareek ur eta mantenugaiak hobeto xurgatzen dituzte. Berehalako kontsumorako edo kontserbetarako fruta eta barazkiak biltzeko ezin hobea.',
+      '🍂 <strong>Ilargi behera:</strong> Izerdia behera doa sustraietan. Luzaroko kontserbaziorako tuberkuluak, sustraiak eta erpurruak biltzeko ezin hobea. Zuhaitzak inausteko eta belar txarrak kentzeko garaia.',
+    ],
+    gl: [
+      '🌱 <strong>Lúa nova:</strong> Momento ideal para labrar, abonar e preparar o chan. As sementes sementadas agora terán xerminación lenta pero raíces fortes. Bo momento para podar para reducir o crecemento.',
+      '🌿 <strong>Lúa crecente:</strong> A seiva sobe cara as partes aéreas. Excelente para sementar plantas de froito e follaxe. Bo momento para trasplantar e aplicar adubos foliares. Evitade podar.',
+      '🌕 <strong>Lúa chea:</strong> Máxima actividade vital. As plantas absorben mellor a auga e os nutrientes. Ideal para colleitar froitas e verduras para consumo inmediato ou conserva.',
+      '🍂 <strong>Lúa minguante:</strong> A seiva baixa cara as raíces. Perfecto para colleitar tubérculos, raíces e bolbos para conservación longa. Bo momento para podar árbores e eliminar malas herbas.',
+    ],
+    en: [
+      '🌱 <strong>New Moon:</strong> Ideal time for tilling, fertilizing and soil preparation. Seeds sown now will have slow germination but strong roots. Good time for pruning to reduce growth.',
+      '🌿 <strong>Waxing Moon:</strong> Sap rises toward aerial parts. Excellent for sowing fruit and leaf plants. Good time for transplanting and foliar feeding. Avoid pruning.',
+      '🌕 <strong>Full Moon:</strong> Maximum vital activity. Plants absorb water and nutrients best. Ideal for harvesting fruit and vegetables for immediate consumption or preserving.',
+      '🍂 <strong>Waning Moon:</strong> Sap descends toward roots. Perfect for harvesting tubers, roots and bulbs for long-term storage. Good time for pruning trees and applying herbicides.',
+    ],
+  };
+  const t = tips[lang] || tips.ca;
+  return t[period];
+}
+
+function windDirArrow(deg) {
+  const dirs = ['↑N','↗NE','→E','↘SE','↓S','↙SW','←W','↖NW'];
+  return dirs[Math.round(deg / 45) % 8];
+}
+
+// ─────────────────────────────────────────
+//  HOURLY FORECAST
+// ─────────────────────────────────────────
+function renderHourly(dayIdx) {
+  if (!hourlyData) return;
+  const dateStr = forecastData.time[dayIdx];
+  const row = document.getElementById('hourly-row');
+  row.innerHTML = '';
+
+  // Obtenir hora sortida/posta del sol per aquest dia
+  const sunriseStr = forecastData.sunrise ? forecastData.sunrise[dayIdx] : null;
+  const sunsetStr  = forecastData.sunset  ? forecastData.sunset[dayIdx]  : null;
+  const sunriseHour = sunriseStr ? new Date(sunriseStr).getHours() : 7;
+  const sunsetHour  = sunsetStr  ? new Date(sunsetStr).getHours()  : 21;
+
+  const dayDate = new Date(dateStr + 'T12:00:00');
+
+  hourlyData.time.forEach((t, i) => {
+    if (!t.startsWith(dateStr)) return;
+    const hour = new Date(t).getHours();
+    const info = wmoInfo(hourlyData.weather_code[i], currentLang);
+    const temp = Math.round(hourlyData.temperature_2m[i]);
+    const rain = (hourlyData.precipitation[i] || 0).toFixed(1);
+    const night = isNightHour(hour, sunriseHour, sunsetHour);
+
+    // Icona: si és de nit i cel serè/poc núvol → lluna real; sinó icona normal
+    let icon;
+    const wcode = hourlyData.weather_code[i];
+    if (night && (wcode === 0 || wcode === 1)) {
+      icon = moonIcon(dayDate); // lluna amb fase correcta
+    } else if (night) {
+      icon = info.iconNight;
+    } else {
+      icon = info.icon;
+    }
+
+    const box = document.createElement('div');
+    box.className = 'hour-box';
+    box.style.background = night ? 'rgba(30,50,80,0.06)' : 'var(--bg)';
+    box.innerHTML = `
+      <div class="h-time" style="color:${night?'var(--sky)':'var(--text-muted)'}">${String(hour).padStart(2,'0')}h</div>
+      <div class="h-icon">${icon}</div>
+      <div class="h-temp">${temp}°</div>
+      <div class="h-rain">${rain > 0 ? rain + 'mm' : ''}</div>
+    `;
+    row.appendChild(box);
+  });
+}
+
+// ─────────────────────────────────────────
+//  AI RECOMMENDATIONS via Claude API
+// ─────────────────────────────────────────
+// 👇 Canvia aquesta URL per la URL del teu Cloudflare Worker
+const WORKER_URL = 'https://EL-TEU-WORKER.EL-TEU-USUARI.workers.dev';
+
+let lastAIRequest = null;
+async function triggerAIRecommendation(dayIdx) {
+  const T = LANGS[currentLang];
+  const aiContent = document.getElementById('ai-content');
+
+  const d = forecastData;
+  const crop = document.getElementById('crop-select').value;
+  const cropName = T.crops[crop] || crop;
+  const dateStr = d.time[dayIdx];
+  const tmax = Math.round(d.temperature_2m_max[dayIdx]);
+  const tmin = Math.round(d.temperature_2m_min[dayIdx]);
+  const rain = (d.precipitation_sum[dayIdx] || 0).toFixed(1);
+  const precip_prob = d.precipitation_probability_max[dayIdx] || 0;
+  const wind = Math.round(d.wind_speed_10m_max[dayIdx]);
+  const gust = Math.round(d.wind_gusts_10m_max[dayIdx]);
+  const uv = (d.uv_index_max[dayIdx] || 0).toFixed(1);
+  const et = d.et0_fao_evapotranspiration ? (d.et0_fao_evapotranspiration[dayIdx] || 0).toFixed(1) : '?';
+  const sunshine = d.sunshine_duration ? (d.sunshine_duration[dayIdx] / 3600).toFixed(1) : '?';
+  const snow = d.snowfall_sum ? (d.snowfall_sum[dayIdx] || 0).toFixed(1) : '0';
+  const wmoCode = d.weather_code[dayIdx];
+  // Get humidity from hourly averages
+  let rhValsAI = [];
+  if (hourlyData) hourlyData.time.forEach((t,hi) => { if (t.startsWith(dateStr) && hourlyData.relative_humidity_2m[hi] != null) rhValsAI.push(hourlyData.relative_humidity_2m[hi]); });
+  const humidity = rhValsAI.length ? Math.round(rhValsAI.reduce((a,b)=>a+b,0)/rhValsAI.length) : '?';
+  const { desc: wDesc } = wmoInfo(wmoCode, currentLang);
+
+  const langNames = { ca:'català', es:'castellano', eu:'euskara', gl:'galego', en:'english' };
+  const langName = langNames[currentLang] || 'català';
+
+  const requestKey = `${dayIdx}-${crop}-${currentLang}`;
+  if (lastAIRequest === requestKey) return;
+  lastAIRequest = requestKey;
+
+  aiContent.innerHTML = `<div class="ai-loading"><div class="spinner"></div><span>${T.lbl_ai_loading}</span></div>`;
+
+  const prompt = `Ets un expert agrònom i consultor agrícola. Analitza les dades meteorològiques per al dia ${dateStr} i el cultiu de ${cropName} en la ubicació ${currentLocation} (lat: ${currentLat?.toFixed(3)}, lon: ${currentLon?.toFixed(3)}).
+
+DADES METEOROLÒGIQUES:
+- Condicions: ${wDesc} (codi WMO: ${wmoCode})
+- Temperatura màxima: ${tmax}°C, mínima: ${tmin}°C
+- Precipitació: ${rain} mm, probabilitat: ${precip_prob}%
+- Vent màxim: ${wind} km/h, ratxa màxima: ${gust} km/h
+- Humitat relativa mitja: ${humidity}%
+- Índex UV màxim: ${uv}
+- Evapotranspiració (ET0 FAO): ${et} mm/dia
+- Hores de sol: ${sunshine} h
+- Neu: ${snow} cm
+
+Respon EXCLUSIVAMENT en ${langName}. Proporciona una anàlisi agrícola estructurada amb:
+
+1. **REG**: Necessitat de reg (Sí/No/Opcional), quantitat recomanada en mm, moment del dia, justificació agronòmica basada en ET0 i precipitació.
+2. **FITOSANITARIS**: Si és adequat aplicar tractaments fitosanitaris (fungicides, insecticides, herbicides), condicions de vent i humitat, horari recomanat, risc de malalties pel temps.
+3. **OPERACIONS DE CAMP**: Tasques agrícoles adequades per a aquest dia (llaurar, sembrar, podar, collir...) i les que s'han d'evitar.
+4. **ALERTES**: Qualsevol risc especial (gelada, pedra, excés de calor, humitat excessiva, malalties fúngiques...).
+
+Format de resposta: usa seccions clares, missatge CLAR I SENZILL que pugui entendre un agricultor que no domina la tecnologia. Sense jerga tècnica excessiva. Màxim 300 paraules.`;
+
+  // Si el Worker no està configurat, mostrar recomanació bàsica directament
+  const workerConfigured = WORKER_URL && !WORKER_URL.includes('EL-TEU-WORKER');
+  if (!workerConfigured) {
+    aiContent.innerHTML = `<div style="background:var(--leaf-light);border-radius:var(--radius-sm);padding:1rem;font-size:0.88rem;color:var(--text);line-height:1.75;">
+      ${getBasicRecommendation(dayIdx)}
+    </div>`;
+    return;
+  }
+
+  // Fetch amb timeout de 12 segons
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000);
+
+  try {
+    const response = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt }),
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (data.error) throw new Error(data.error);
+    aiContent.innerHTML = formatAIResponse(data.text || '');
+  } catch(e) {
+    clearTimeout(timeout);
+    const isTimeout = e.name === 'AbortError';
+    aiContent.innerHTML = `<div style="background:var(--leaf-light);border-radius:var(--radius-sm);padding:1rem;font-size:0.88rem;color:var(--text);line-height:1.75;">
+      ${getBasicRecommendation(dayIdx)}
+      <div style="margin-top:0.75rem;padding-top:0.5rem;border-top:1px solid var(--border);font-size:0.72rem;color:var(--text-muted);">
+        ${isTimeout ? '⏱️ Temps d\'espera esgotat' : '⚠️ ' + e.message}
+      </div>
+    </div>`;
+  }
+}
+
+function formatAIResponse(text) {
+  // Convert markdown-style to HTML
+  let html = text
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/^#{1,3}\s(.+)/gm, '<h4 style="color:var(--leaf);margin:0.8rem 0 0.3rem;font-size:0.95rem;">$1</h4>')
+    .replace(/^[-•]\s(.+)/gm, '<li style="margin-left:1rem;margin-bottom:0.2rem;">$1</li>')
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/\n/g, '<br>');
+  return `<div style="font-size:0.88rem;line-height:1.7;color:var(--text);">${html}</div>`;
+}
+
+function getBasicRecommendation(dayIdx) {
+  const T = LANGS[currentLang];
+  const d = forecastData;
+  const rain = (d.precipitation_sum[dayIdx] || 0);
+  const tmax = Math.round(d.temperature_2m_max[dayIdx]);
+  const tmin = Math.round(d.temperature_2m_min[dayIdx]);
+  const wind = Math.round(d.wind_speed_10m_max[dayIdx]);
+  const et = d.et0_fao_evapotranspiration ? (d.et0_fao_evapotranspiration[dayIdx] || 0) : 0;
+  const dateStrB = d.time[dayIdx];
+  let rhValsB = [];
+  if (hourlyData) hourlyData.time.forEach((t,hi) => { if (t.startsWith(dateStrB) && hourlyData.relative_humidity_2m[hi] != null) rhValsB.push(hourlyData.relative_humidity_2m[hi]); });
+  const humidity = rhValsB.length ? Math.round(rhValsB.reduce((a,b)=>a+b,0)/rhValsB.length) : 70;
+  const lang = currentLang;
+
+  const recs = {
+    ca: {
+      reg: rain >= et ? '✅ <strong>REG:</strong> No cal regar avui. La pluja cobreix les necessitats hídriques.' : rain > 0 ? `💧 <strong>REG:</strong> Reg complementari recomanat (~${(et-rain).toFixed(1)} mm). Aprofiteu les primeres hores del matí.` : `💧 <strong>REG:</strong> Reg necessari (~${et.toFixed(1)} mm/dia d\'ET0). Regeu a primera hora o al vespre.`,
+      fito: wind > 25 ? '⚠️ <strong>FITOSANITARIS:</strong> Vent massa fort. No apliqueu tractaments avui, risc de deriva.' : humidity > 85 ? '⚠️ <strong>FITOSANITARIS:</strong> Humitat alta. Risc de malalties fúngiques. Valoreu un tractament preventiu.' : '✅ <strong>FITOSANITARIS:</strong> Condicions adequades per aplicar tractaments si cal (vent moderat, horari 7-10h o 18-20h).',
+      frost: tmin < 2 ? '❄️ <strong>ALERTA GELADA:</strong> Temperatura mínima molt baixa. Protegiu cultius sensibles!' : tmin < 5 ? '⚠️ <strong>RISC GELADA:</strong> Temperatura propera a 0°C. Vigileu els cultius de fred sensible.' : '',
+      heat: tmax > 35 ? '🌡️ <strong>ALERTA CALOR:</strong> Temperatures molt altes. Eviteu tasques físiques intenses a migdia.' : ''
+    },
+    es: {
+      reg: rain >= et ? '✅ <strong>RIEGO:</strong> No es necesario regar. La lluvia cubre las necesidades hídricas.' : rain > 0 ? `💧 <strong>RIEGO:</strong> Riego complementario recomendado (~${(et-rain).toFixed(1)} mm). Aprovechad las primeras horas.` : `💧 <strong>RIEGO:</strong> Riego necesario (~${et.toFixed(1)} mm/día de ET0). Regad a primera hora o al atardecer.`,
+      fito: wind > 25 ? '⚠️ <strong>FITOSANITARIOS:</strong> Viento demasiado fuerte. No apliquéis tratamientos hoy.' : humidity > 85 ? '⚠️ <strong>FITOSANITARIOS:</strong> Humedad alta. Riesgo de enfermedades fúngicas.' : '✅ <strong>FITOSANITARIOS:</strong> Condiciones adecuadas para tratamientos (viento moderado, horario 7-10h o 18-20h).',
+      frost: tmin < 2 ? '❄️ <strong>ALERTA HELADA:</strong> ¡Temperatura mínima muy baja! Proteger cultivos sensibles.' : tmin < 5 ? '⚠️ <strong>RIESGO HELADA:</strong> Temperatura cercana a 0°C.' : '',
+      heat: tmax > 35 ? '🌡️ <strong>ALERTA CALOR:</strong> Temperaturas muy altas. Evitad tareas físicas intensas al mediodía.' : ''
+    }
+  };
+  const r = recs[lang] || recs['ca'];
+  const parts = [r.reg, r.fito, r.frost, r.heat].filter(Boolean);
+  const generalHtml = parts.map(p => `<div style="margin-bottom:0.6rem;">${p}</div>`).join('');
+
+  // Consells específics del cultiu
+  const cropHtml = getCropAdvice(dayIdx, lang);
+
+  return generalHtml + cropHtml;
+}
+
+// ─────────────────────────────────────────
+//  CONSELLS ESPECÍFICS PER CULTIU
+// ─────────────────────────────────────────
+function getCropAdvice(dayIdx, lang) {
+  const crop = document.getElementById('crop-select').value;
+  const d = forecastData;
+  const tmax = Math.round(d.temperature_2m_max[dayIdx]);
+  const tmin = Math.round(d.temperature_2m_min[dayIdx]);
+  const rain = (d.precipitation_sum[dayIdx] || 0);
+  const wind = Math.round(d.wind_speed_10m_max[dayIdx]);
+  const dateStr = d.time[dayIdx];
+  const month = new Date(dateStr).getMonth() + 1; // 1-12
+  let rhVals = [];
+  if (hourlyData) hourlyData.time.forEach((t,hi) => { if (t.startsWith(dateStr) && hourlyData.relative_humidity_2m[hi] != null) rhVals.push(hourlyData.relative_humidity_2m[hi]); });
+  const humidity = rhVals.length ? Math.round(rhVals.reduce((a,b)=>a+b,0)/rhVals.length) : 70;
+  const isCA = lang !== 'es';
+
+  const t = (ca, es) => isCA ? ca : es;
+  const title = (emoji, ca, es) => `<div style="margin-top:1rem;padding-top:0.75rem;border-top:1px solid var(--border);font-weight:600;color:var(--leaf);margin-bottom:0.4rem;">${emoji} ${t(ca,es)}</div>`;
+
+  const tips = [];
+
+  // ── Consells comuns: temperatura extrema
+  if (tmax > 38) tips.push(t('🌡️ Temperatura extrema. Prioritzeu el reg a primeres hores, mai a migdia. Valoreu ombreig temporal.','🌡️ Temperatura extrema. Priorice el riego en las primeras horas, nunca al mediodía. Valore sombreo temporal.'));
+  if (tmin < 0) tips.push(t('❄️ Possible gelada. Prepareu sistemes de protecció (aspersió antigelada, mantes tèrmiques) abans que es faci fosc.','❄️ Posible helada. Prepare sistemas de protección (aspersión antihelada, mantas térmicas) antes del anochecer.'));
+
+  let cropBlock = '';
+
+  if (crop === 'vinya') {
+    cropBlock = title('🍇', 'Consells per a la Vinya', 'Consejos para la Viña');
+    if (month >= 3 && month <= 5) cropBlock += `<div style="margin-bottom:0.4rem;">${t('🌱 Època de brotació i creixement. Vigileu les gelades tardanes, que poden destruir els brots nous. Realitzeu el desbrotament i l\'esporga en verd quan calgui.','🌱 Época de brotación y crecimiento. Vigilad las heladas tardías, que pueden destruir los brotes nuevos. Realizad el desbrotado y la poda en verde cuando sea necesario.')}</div>`;
+    if (month >= 6 && month <= 8) cropBlock += `<div style="margin-bottom:0.4rem;">${t('☀️ Època de floració i envero. Controleu el míldiu i l\'oïdi, especialment amb humitat alta. Realitzeu l\'esporga en verd (despampanatge) per millorar l\'airejo dels raïms.','☀️ Época de floración y envero. Controlad el mildiu y el oídio, especialmente con humedad alta. Realizad la poda en verde (despampanado) para mejorar la aireación de los racimos.')}</div>`;
+    if (month >= 9 && month <= 10) cropBlock += `<div style="margin-bottom:0.4rem;">${t('🍇 Època de verema. Veremeu preferiblement a primera hora del matí, quan les temperatures són baixes. Eviteu collir amb pluja o rosada.','🍇 Época de vendimia. Vendimiád preferiblemente a primera hora de la mañana. Evitad cosechar con lluvia o rocío.')}</div>`;
+    if (humidity > 80) cropBlock += `<div style="margin-bottom:0.4rem;">${t('⚠️ Humitat alta: risc elevat de míldiu i botritis. Apliqueu tractaments preventius si no heu tractat recentment. Eviteu humitejar les fulles al regar.','⚠️ Humedad alta: riesgo elevado de mildiu y botritis. Aplique tratamientos preventivos. Evite mojar las hojas al regar.')}</div>`;
+    if (rain > 20) cropBlock += `<div style="margin-bottom:0.4rem;">${t('🌧️ Pluja abundant: renoveu els tractaments fungicides 24-48h després de la pluja. Comproveu l\'estat del sòl per evitar l\'asfíxia radicular.','🌧️ Lluvia abundante: renueve los tratamientos fungicidas 24-48h después de la lluvia. Compruebe el estado del suelo para evitar la asfixia radicular.')}</div>`;
+
+  } else if (crop === 'olivera') {
+    cropBlock = title('🫒', 'Consells per a l\'Olivera', 'Consejos para el Olivo');
+    if (month >= 3 && month <= 5) cropBlock += `<div style="margin-bottom:0.4rem;">${t('🌸 Inici de la floració. Eviteu aplicar insecticides durant la floració per no perjudicar els pol·linitzadors. Realitzeu la poda de formació si no l\'heu feta.','🌸 Inicio de la floración. Evitad aplicar insecticidas durante la floración para no perjudicar a los polinizadores. Realizad la poda de formación si no se ha hecho.')}</div>`;
+    if (month >= 6 && month <= 8) cropBlock += `<div style="margin-bottom:0.4rem;">${t('🫒 Creixement del fruit. Controleu la mosca de l\'oliva (Bactrocera oleae), especialment amb temperatures entre 20-30°C. Col·loqueu trampes de monitoratge.','🫒 Crecimiento del fruto. Controlad la mosca del olivo (Bactrocera oleae), especialmente con temperaturas entre 20-30°C. Colocad trampas de monitoreo.')}</div>`;
+    if (month >= 10 && month <= 12) cropBlock += `<div style="margin-bottom:0.4rem;">${t('🍂 Època de collita. Recolliu les olives al punt òptim de maduresa (envero). La recol·lecció matinera conserva millor la qualitat de l\'oli.','🍂 Época de recolección. Recoged las aceitunas en el punto óptimo de madurez (envero). La recolección matutina conserva mejor la calidad del aceite.')}</div>`;
+    if (tmax > 35) cropBlock += `<div style="margin-bottom:0.4rem;">${t('🌡️ Calor intensa: l\'olivera és resistent però el reg en períodes crítics (floració, quallat) millora significativament la producció.','🌡️ Calor intensa: el olivo es resistente pero el riego en períodos críticos (floración, cuajado) mejora significativamente la producción.')}</div>`;
+
+  } else if (crop === 'horta') {
+    cropBlock = title('🥦', 'Consells per a l\'Horta', 'Consejos para la Huerta');
+    if (tmax > 30) cropBlock += `<div style="margin-bottom:0.4rem;">${t('🌡️ Calor elevada: augmenteu la freqüència de reg (2 cops/dia si cal). Protegiu les plàntules joves amb ombreig. El tomàquet i el pebrot poden patir escaldadura.','🌡️ Calor elevada: aumentad la frecuencia de riego (2 veces/día si es necesario). Proteger las plántulas jóvenes con sombreo. El tomate y el pimiento pueden sufrir escaldado.')}</div>`;
+    if (tmin < 5) cropBlock += `<div style="margin-bottom:0.4rem;">${t('❄️ Protegiu les hortalisses sensibles al fred (tomàquet, albergínia, pebrot, carbassó) amb mantes tèrmiques o túnels de plàstic.','❄️ Proteger las hortalizas sensibles al frío (tomate, berenjena, pimiento, calabacín) con mantas térmicas o túneles de plástico.')}</div>`;
+    if (humidity > 80 && tmax > 20) cropBlock += `<div style="margin-bottom:0.4rem;">${t('⚠️ Condicions favorables per a malalties fúngiques: míldiu, alternaria, botritis. Milloreu la ventilació entre plantes i apliqueu tractaments preventius.','⚠️ Condiciones favorables para enfermedades fúngicas: mildiu, alternaria, botritis. Mejorad la ventilación entre plantas y aplicad tratamientos preventivos.')}</div>`;
+    cropBlock += `<div style="margin-bottom:0.4rem;">${t('💡 Consell general: reviseu diàriament l\'estat de les plantes. Elimineu fulles seques o malaltes per evitar la propagació de malalties. Roteu els cultius cada temporada.','💡 Consejo general: revisad diariamente el estado de las plantas. Eliminad las hojas secas o enfermas para evitar la propagación de enfermedades. Rotad los cultivos cada temporada.')}</div>`;
+
+  } else if (crop === 'blat') {
+    cropBlock = title('🌾', 'Consells per al Blat i Cereals', 'Consejos para el Trigo y Cereales');
+    if (month >= 11 || month <= 2) cropBlock += `<div style="margin-bottom:0.4rem;">${t('🌱 Època de sembra o nascença. Assegureu una bona preparació del llit de sembra. Controleu les males herbes en els primers estadis.','🌱 Época de siembra o nascencia. Asegurad una buena preparación del lecho de siembra. Controlad las malas hierbas en los primeros estadios.')}</div>`;
+    if (month >= 3 && month <= 5) cropBlock += `<div style="margin-bottom:0.4rem;">${t('🌿 Encanyament i espigat. Controleu les malalties fúngiques (rovell, septoria) amb humitat alta. Realitzeu l\'abonament nitrogenat de cobertera si és el moment.','🌿 Encañado y espigado. Controlad las enfermedades fúngicas (roya, septoria) con humedad alta. Realizad el abonado nitrogenado de cobertera si es el momento.')}</div>`;
+    if (month >= 6 && month <= 7) cropBlock += `<div style="margin-bottom:0.4rem;">${t('🌾 Maduració i sega. Comproveu el grau d\'humitat del gra (òptim 14%) abans de segar. Eviteu segar amb pluja o rosada per prevenir problemes d\'emmagatzematge.','🌾 Maduración y siega. Comprobad el grado de humedad del grano (óptimo 14%) antes de segar. Evitad segar con lluvia o rocío para prevenir problemas de almacenamiento.')}</div>`;
+    if (wind > 30) cropBlock += `<div style="margin-bottom:0.4rem;">${t('💨 Vent fort: risc d\'encamament del cereal. Vigileu especialment en estadis d\'espigat.','💨 Viento fuerte: riesgo de encamado del cereal. Vigilad especialmente en estadios de espigado.')}</div>`;
+
+  } else if (crop === 'fruita') {
+    cropBlock = title('🍎', 'Consells per a la Fruita de Grau', 'Consejos para la Fruta de Hueso');
+    if (month >= 2 && month <= 3) cropBlock += `<div style="margin-bottom:0.4rem;">${t('✂️ Poda d\'hivern/primavera. Bon moment per acabar la poda i aplicar tractaments de pasta cicatritzant en les ferides grans. Retireu i destruïu les restes de poda.','✂️ Poda de invierno/primavera. Buen momento para terminar la poda y aplicar tratamientos de pasta cicatrizante en las heridas grandes. Retirad y destruid los restos de poda.')}</div>`;
+    if (month >= 3 && month <= 5) cropBlock += `<div style="margin-bottom:0.4rem;">${t('🌸 Floració i quallat. Protegiu contra les gelades tardanes (crítiques per sobre de -1°C amb flor oberta). Controleu el foc bacterià en condicions humides i temperades.','🌸 Floración y cuajado. Proteger contra las heladas tardías (críticas por encima de -1°C con flor abierta). Controlad el fuego bacteriano en condiciones húmedas y templadas.')}</div>`;
+    if (month >= 6 && month <= 8) cropBlock += `<div style="margin-bottom:0.4rem;">${t('🍑 Creixement i maduració. Realitzeu l\'aclarida de fruits per obtenir mides comercials. Controleu la monília i els pugons. Instal·leu xarxes antigranís si hi ha risc.','🍑 Crecimiento y maduración. Realizad el aclareo de frutos para obtener tamaños comerciales. Controlad la monilia y los pulgones. Instalad redes antigranizo si hay riesgo.')}</div>`;
+    if (tmin < 0 && (month >= 3 && month <= 5)) cropBlock += `<div style="margin-bottom:0.4rem;">${t('❄️ CRÍTIC: gelada durant la floració o quallat. Activeu immediatament la protecció antigelada (aspersió o ventiladors). Els danys poden ser irreversibles.','❄️ CRÍTICO: helada durante la floración o cuajado. Activad inmediatamente la protección antihelada (aspersión o ventiladores). Los daños pueden ser irreversibles.')}</div>`;
+
+  } else if (crop === 'cítrics') {
+    cropBlock = title('🍊', 'Consells per als Cítrics', 'Consejos para los Cítricos');
+    if (tmin < 2) cropBlock += `<div style="margin-bottom:0.4rem;">${t('❄️ Risc de gelada per als cítrics. La taronja aguanta fins a -4°C i el llimoner fins a -2°C. Protegiu els arbres joves amb mantes tèrmiques o aspersió.','❄️ Riesgo de helada para los cítricos. La naranja aguanta hasta -4°C y el limonero hasta -2°C. Proteger los árboles jóvenes con mantas térmicas o aspersión.')}</div>`;
+    if (month >= 6 && month <= 9) cropBlock += `<div style="margin-bottom:0.4rem;">${t('☀️ Estiu: els cítrics necessiten reg regular. Controleu la mosca blanca i els àcars rojos, que s\'incrementen amb la calor. Apliqueu adob potàssic per millorar la qualitat del fruit.','☀️ Verano: los cítricos necesitan riego regular. Controlad la mosca blanca y los ácaros rojos, que aumentan con el calor. Aplicad abono potásico para mejorar la calidad del fruto.')}</div>`;
+    if (month >= 10 && month <= 2) cropBlock += `<div style="margin-bottom:0.4rem;">${t('🍊 Collita de tardor/hivern. Recolliu quan el color sigui uniforme. Eviteu colpir els fruits durant la collita. Traceu la pell amb fungicides postcollita si cal.','🍊 Cosecha de otoño/invierno. Recoged cuando el color sea uniforme. Evitad golpear los frutos durante la cosecha.')}</div>`;
+
+  } else if (crop === 'arros') {
+    cropBlock = title('🌾', 'Consells per a l\'Arròs', 'Consejos para el Arroz');
+    if (month >= 4 && month <= 5) cropBlock += `<div style="margin-bottom:0.4rem;">${t('🌱 Sembra i trasplantament. Assegureu una làmina d\'aigua de 5-10 cm durant el primer mes. La temperatura de l\'aigua ha de ser superior a 15°C per a una bona germinació.','🌱 Siembra y trasplante. Asegurad una lámina de agua de 5-10 cm durante el primer mes. La temperatura del agua debe ser superior a 15°C para una buena germinación.')}</div>`;
+    if (month >= 6 && month <= 8) cropBlock += `<div style="margin-bottom:0.4rem;">${t('💧 Manteniment de la làmina d\'aigua. Controleu les males herbes aquàtiques. Vigileu el tall de canya (Chilo suppressalis). Apliqueu adob nitrogenat en cobertera.','💧 Mantenimiento de la lámina de agua. Controlad las malas hierbas acuáticas. Vigilad el taladro del arroz (Chilo suppressalis). Aplicad abono nitrogenado en cobertera.')}</div>`;
+    if (month >= 9 && month <= 10) cropBlock += `<div style="margin-bottom:0.4rem;">${t('🌾 Maduració i sega. Retireu l\'aigua 15-20 dies abans de la sega. Segeu quan la humitat del gra sigui del 20-25%. Eviteu perdues per escudellament.','🌾 Maduración y siega. Retirad el agua 15-20 días antes de la siega. Segad cuando la humedad del grano sea del 20-25%.')}</div>`;
+    if (tmax > 35) cropBlock += `<div style="margin-bottom:0.4rem;">${t('🌡️ Calor intensa durant la floració: pot causar esterilitat del pol·len. Manteniu la làmina d\'aigua alta per refrescar.','🌡️ Calor intensa durante la floración: puede causar esterilidad del polen. Mantened la lámina de agua alta para refrescar.')}</div>`;
+
+  } else if (crop === 'patata') {
+    cropBlock = title('🥔', 'Consells per a la Patata', 'Consejos para la Patata');
+    if (month >= 2 && month <= 4) cropBlock += `<div style="margin-bottom:0.4rem;">${t('🌱 Plantació. Planteu quan la temperatura del sòl superi els 8°C. Feu el ridgat correctament per facilitar el tuberitzat i evitar el verdeig.','🌱 Plantación. Planted cuando la temperatura del suelo supere los 8°C. Realizad el aporcado correctamente para facilitar el tuberizado y evitar el verdeado.')}</div>`;
+    if (humidity > 80 && tmax > 15) cropBlock += `<div style="margin-bottom:0.4rem;">${t('⚠️ Condicions d\'alt risc de míldiu (Phytophthora infestans). Apliqueu fungicides preventius. Reviseu diàriament les plantes per detectar els primers símptomes.','⚠️ Condiciones de alto riesgo de mildiu (Phytophthora infestans). Aplicad fungicidas preventivos. Revisad diariamente las plantas para detectar los primeros síntomas.')}</div>`;
+    if (month >= 6 && month <= 8) cropBlock += `<div style="margin-bottom:0.4rem;">${t('🥔 Collita. Comproveu la maduresa aixecant una planta. La pell del tubèrcul ha d\'estar ben fixada. Deixeu assecar els tubercles a l\'ombra 1-2 hores abans d\'emmagatzemar.','🥔 Cosecha. Comprobad la madurez levantando una planta. La piel del tubérculo debe estar bien fijada. Dejad secar los tubérculos a la sombra 1-2 horas antes de almacenar.')}</div>`;
+
+  } else if (crop === 'girasol') {
+    cropBlock = title('🌻', 'Consells per al Gira-sol', 'Consejos para el Girasol');
+    if (month >= 4 && month <= 5) cropBlock += `<div style="margin-bottom:0.4rem;">${t('🌱 Sembra. Sembreu quan la temperatura del sòl superi els 10°C. Controleu els ocells i insectes durant la nascença. Densitat recomanada: 5-7 plantes/m².','🌱 Siembra. Sembrad cuando la temperatura del suelo supere los 10°C. Controlad los pájaros e insectos durante la nascencia. Densidad recomendada: 5-7 plantas/m².')}</div>`;
+    if (month >= 7 && month <= 9) cropBlock += `<div style="margin-bottom:0.4rem;">${t('🌻 Floració i maduració. El gira-sol és força resistent a la sequera, però un reg en floració millora el rendiment. Controleu el cuc de la capsa (Helicoverpa armigera).','🌻 Floración y maduración. El girasol es bastante resistente a la sequía, pero un riego en floración mejora el rendimiento. Controlad el gusano de la cápsula (Helicoverpa armigera).')}</div>`;
+    if (wind > 35) cropBlock += `<div style="margin-bottom:0.4rem;">${t('💨 Vent molt fort: risc d\'encamament. Vigileu especialment les plantes en floració.','💨 Viento muy fuerte: riesgo de encamado. Vigilad especialmente las plantas en floración.')}</div>`;
+
+  } else if (crop === 'llegums') {
+    cropBlock = title('🫘', 'Consells per a les Lleguminoses', 'Consejos para las Leguminosas');
+    if (month >= 2 && month <= 4) cropBlock += `<div style="margin-bottom:0.4rem;">${t('🌱 Sembra de primavera. Les lleguminoses fixen nitrogen atmosfèric. Inoculeu les llavors amb Rhizobium si el camp no ha tingut lleguminoses en els últims 3 anys.','🌱 Siembra de primavera. Las leguminosas fijan nitrógeno atmosférico. Inoculad las semillas con Rhizobium si el campo no ha tenido leguminosas en los últimos 3 años.')}</div>`;
+    if (humidity > 75 && tmax > 18) cropBlock += `<div style="margin-bottom:0.4rem;">${t('⚠️ Condicions favorables per a l\'antracnosi i la botritis. Controleu l\'estat de les plantes i apliqueu fungicides si cal.','⚠️ Condiciones favorables para la antracnosis y la botritis. Controlad el estado de las plantas y aplicad fungicidas si es necesario.')}</div>`;
+    cropBlock += `<div style="margin-bottom:0.4rem;">${t('💡 Les lleguminoses no necessiten adob nitrogenat si estan ben nodulades. Controleu els pugons, especialment en temps càlid i sec.','💡 Las leguminosas no necesitan abono nitrogenado si están bien noduladas. Controlad los pulgones, especialmente en tiempo cálido y seco.')}</div>`;
+
+  } else if (crop === 'fruiters') {
+    cropBlock = title('🌸', 'Consells per als Fruiters de Primavera', 'Consejos para los Frutales de Primavera');
+    if (month >= 1 && month <= 3) cropBlock += `<div style="margin-bottom:0.4rem;">${t('✂️ Poda hivernal. Realitzeu la poda quan l\'arbre estigui en repòs vegetatiu. Apliqueu pasta cicatritzant en les ferides grans. Recolliu i destruïu les restes de poda.','✂️ Poda invernal. Realizad la poda cuando el árbol esté en reposo vegetativo. Aplicad pasta cicatrizante en las heridas grandes. Recoged y destruid los restos de poda.')}</div>`;
+    if (month >= 3 && month <= 5) cropBlock += `<div style="margin-bottom:0.4rem;">${t('🌸 Floració. Màxim risc per a les gelades. Temperatura crítica per a la flor oberta: -1°C. Protegiu amb aspersió o ventiladors. Controleu el foc bacterià i la monília.','🌸 Floración. Máximo riesgo para las heladas. Temperatura crítica para la flor abierta: -1°C. Proteger con aspersión o ventiladores. Controlad el fuego bacteriano y la monilia.')}</div>`;
+    if (month >= 5 && month <= 7) cropBlock += `<div style="margin-bottom:0.4rem;">${t('🍑 Aclarida i creixement del fruit. Realitzeu l\'aclarida manual o química per obtenir fruits de mida comercial. Controleu els pugons i la carpocapsa.','🍑 Aclareo y crecimiento del fruto. Realizad el aclareo manual o químico. Controlad los pulgones y la carpocapsa.')}</div>`;
+
+  } else if (crop === 'farratge') {
+    cropBlock = title('🐄', 'Consells per al Farratge i Pastures', 'Consejos para el Forraje y Pastos');
+    if (rain > 15) cropBlock += `<div style="margin-bottom:0.4rem;">${t('🌧️ Pluja abundant: eviteu el trepig del bestiar en el prat fins que el sòl s\'assequi per evitar la compactació. Bon moment per a la recuperació de la gespa.','🌧️ Lluvia abundante: evitad el pisoteo del ganado en el prado hasta que el suelo se seque para evitar la compactación. Buen momento para la recuperación del césped.')}</div>`;
+    if (tmax > 30 && rain < 2) cropBlock += `<div style="margin-bottom:0.4rem;">${t('🌡️ Calor i sequera: les pastures entren en parada estival. Reduïu la pressió del pasturatge. Si teniu reg, apliqueu 25-30 mm/setmana per mantenir la producció.','🌡️ Calor y sequía: los pastos entran en parada estival. Reducid la presión del pastoreo. Si tenéis riego, aplicad 25-30 mm/semana para mantener la producción.')}</div>`;
+    if (month >= 4 && month <= 6) cropBlock += `<div style="margin-bottom:0.4rem;">${t('🌿 Època de màxima producció. Segeu el farratge quan la gramínea estigui en espigat inicial o la lleguminosa en un 25% de floració per optimitzar qualitat i rendiment.','🌿 Época de máxima producción. Segad el forraje cuando la gramínea esté en espigado inicial o la leguminosa en un 25% de floración para optimizar calidad y rendimiento.')}</div>`;
+    cropBlock += `<div style="margin-bottom:0.4rem;">${t('💡 Aboneu amb nitrogen després de cada sega per mantenir la productivitat del prat. Controleu les males herbes invasores periòdicament.','💡 Abonad con nitrógeno después de cada siega para mantener la productividad del prado. Controlad las malas hierbas invasoras periódicamente.')}</div>`;
+  }
+
+  if (!cropBlock) return '';
+  return `<div style="margin-top:0.5rem;">${cropBlock}${tips.map(tip=>`<div style="margin-bottom:0.4rem;">${tip}</div>`).join('')}</div>`;
+}
+
+// ─────────────────────────────────────────
+//  HELPERS
+// ─────────────────────────────────────────
+function showError(msg) {
+  const el = document.getElementById('error-area');
+  el.innerHTML = msg ? `<div class="error-msg">⚠️ ${msg}</div>` : '';
+}
+</script>
+<script>
+// S'executa quan tot el DOM ja està carregat
+initDropdowns();
+</script>
+</body>
+</html>
